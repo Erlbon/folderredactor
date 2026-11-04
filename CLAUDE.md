@@ -3,10 +3,10 @@
 The Ⅎolder Redactor (`APP_NAME` "The \u2132older Redactor", Ⅎ = U+2132 TURNED CAPITAL F): a PyQt6 Windows desktop tool for the folders of a media library, with two jobs: drafting the Markdown folder notes Pluteus shows (moved out of mp3redactor and videoredactor), and checking a library's folder tree against its conventions with yes/no renames (ideas from comic-checker, written fresh). Part of the Redactor family; shared code lives in [redactor_common](https://github.com/Erlbon/redactor_common), pinned by tag in `requirements.txt`. The plan: `C:\Temp\Claude\notes-app-plan\plan.md`.
 
 ## Commands
-- Run: `pip install -r requirements.txt` then `python main.py` (or `python main.py D:\Music` to open a library)
-- Test: `pytest` (tests in `tests/`, Qt offscreen)
+- Set up: `python ../redactor-build-tools/devenv/venv_sync.py .` makes this repo's own `.venv` at the redactor_common pin (never `pip install -r requirements.txt` into the shared Python: one repo's pin then breaks the others, 2026-11-04). Run: `.venv/Scripts/python main.py` (or `python main.py D:\Music` to open a library)
+- Test: `.venv/Scripts/python -m pytest`, as the pre-push hook does (tests in `tests/`, Qt offscreen)
 - Build exe: `build_exe.bat` (`folderredactor.spec`). It must be built on Windows.
-- Bump version: `python bump_version.py`
+- Bump version: `.venv/Scripts/python bump_version.py`
 - Hooks: `git config core.hooksPath .githooks` once per clone (pre-commit: staged files parse, no control characters; pre-push: the tests pass)
 
 ## Domain notes
@@ -18,9 +18,9 @@ The Ⅎolder Redactor (`APP_NAME` "The \u2132older Redactor", Ⅎ = U+2132 TURNE
 
 ## Family conventions (apply to every Redactor repo)
 1. **Sync first.** Other Claude sessions, sometimes on other machines, edit these repos concurrently. Before editing, and again right before every `git push`: `git fetch origin -q; git status --porcelain -b`. Confirm you match origin and the tree is clean. Fast-forward if behind; resolve if diverged.
-2. **Version bump at check-in.** Any commit that changes real code must, in the same check-in, run `python bump_version.py` and add a matching `CHANGELOG.md` entry, before pushing, without being asked. This was missed twice on epubredactor (2026-09-14, 2026-09-17). `release.ps1` does not bump versions for you.
+2. **Version bump at check-in.** Any commit that changes real code must, in the same check-in, run `.venv/Scripts/python bump_version.py` and add a matching `CHANGELOG.md` entry, before pushing, without being asked. This was missed twice on epubredactor (2026-09-14, 2026-09-17). `release.ps1` does not bump versions for you.
 3. **Progress feedback for every slow operation.** Every slow operation (folder scan, load, probe, conversion, network call, reload) shows a progress dialog: `redactor_common.gui.progress.run_with_progress()` for loops (`cancellable=False` for read-only scans and reloads, `True` for applies that mutate), `run_busy()` for a single long call. The only exception is a live-typing preview (search/replace, rename pattern) whose per-item work is confirmed cheap by a timing check at large N.
-4. **Promote to redactor_common first.** A fix or feature useful to more than one app is built and verified in `redactor_common`, version-bumped, tagged, and pushed. Then each app bumps its `requirements.txt` pin plus its own `APP_VERSION` and `CHANGELOG.md`. Flag a stale pin rather than ignoring it.
+4. **Promote to redactor_common first.** A fix or feature useful to more than one app is built and verified in `redactor_common`, version-bumped, tagged, and pushed. Then each app bumps its `requirements.txt` pin plus its own `APP_VERSION` and `CHANGELOG.md`. Flag a stale pin rather than ignoring it. The family keeps one pin (decided 2026-11-04): when redactor_common gets a new tag, every app moves to it in its next check-in, and a release built on an older pin is flagged first.
 5. **Landing page honesty.** erlbon.github.io's Formats table must match the app's real menu actions and file-picker filters, not what the underlying library could theoretically do.
 6. **Cross-platform goal.** A Linux/Mac port is planned. Avoid new unguarded Windows-only code (registry, hardcoded `C:\` paths, Windows APIs without a `sys.platform` guard). Follow the existing patterns: PATH-based tool lookup (`redactor_common/core/tool_locator.py`), `QSettings` with `IniFormat` and an explicit path, `sys.platform == "win32"` guards.
 7. **PowerShell 5.1 pitfall in release scripts.** Under `$ErrorActionPreference = "Stop"`, a native command's stderr becomes a terminating error. Redirect only stdout (`cmd | Out-Null`), never `2>&1`, and reset `$LASTEXITCODE` after reading it. Also, the release script tags and pushes before `gh release create`, so "tag exists, release doesn't" is a resumable state; check with `gh release view <tag>`.

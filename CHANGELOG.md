@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-04#02 -- redactor_common 2026-11-04-02, and tests in the repo's own venv
+
+- **redactor_common 2026-11-04-02** (was 2026-11-04-01), the tag the other Redactors use. The family keeps one pin
+  from now on.
+- **The pre-push hook tests in this repo's own `.venv`**, made and kept at the pin by
+  `redactor-build-tools/devenv/venv_sync.py`. With one shared install, one repo's pin broke the others' pushes.
+  `tests/test_pre_push_hook.py` guards the hook; `.venv/` is ignored.
+
 ## 2026-11-04#01 -- First skeleton
 
 The Ⅎolder Redactor starts as its own app (plan: Create Notes moves out of mp3redactor and videoredactor, and the
