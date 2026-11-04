@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+build/
+dist/
+*.spec.bak
+
+# Linux builds (redactor-build-tools/linux-build/build.sh)
+build-linux/
+dist-linux/
+
+# Per-user files next to the exe (or the project folder when running from source)
+folderredactor_settings.ini
+folderredactor_settings.ini.tmp
+folderredactor_crash.log
+folderredactor_journal.jsonl*
+folderredactor_updates.json
+notes_backup/

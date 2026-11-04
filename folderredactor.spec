@@ -1,0 +1,61 @@
+# PyInstaller spec file for The Ⅎolder Redactor.
+#
+# Build on Windows with: pyinstaller folderredactor.spec
+# (PyInstaller builds for whatever platform it runs ON -- this cannot be
+# cross-compiled from Linux/macOS to produce a Windows .exe, so this file
+# is written and reviewed here but must actually be run on Windows.)
+#
+# Nothing external is shelled out to: the exe is self-contained.
+
+import sys
+from pathlib import Path
+
+block_cipher = None
+
+a = Analysis(
+    ["main.py"],
+    pathex=[],
+    binaries=[],
+    datas=[
+        ("ABOUT.md", "."),
+        ("CHANGELOG.md", "."),
+        ("CREDITS.md", "."),
+        ("assets/icon.ico", "assets"),
+    ],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name="folderredactor",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    # UPX off (2026-10-30): Defender flagged the UPX-packed, unsigned release
+    # exe as Trojan:Win32/Yomal!rfn. A larger exe beats one that is quarantined.
+    upx=False,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,  # windowed app -- no console popup, same as the siblings' exe
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon="assets/icon.ico",
+)
