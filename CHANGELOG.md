@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-05#01 -- redactor_common 2026-11-05-01
+
+- **redactor_common 2026-11-05-01** (was 2026-11-04-02), the family's one pin. Undo keeps 50 steps (was 5), and
+  the shared Redact engine has a dry run; neither changes anything here yet (no Redact, no undoable edits).
+
 ## 2026-11-04#02 -- redactor_common 2026-11-04-02, and tests in the repo's own venv
 
 - **redactor_common 2026-11-04-02** (was 2026-11-04-01), the tag the other Redactors use. The family keeps one pin
