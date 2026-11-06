@@ -3,9 +3,11 @@ core/old_apps.py
 
 Bringing over what mp3redactor and videoredactor knew about notes (plan step 10, decision D5). Qt-free.
 
-  found_keys()                 the Discogs token (mp3redactor) and TMDB key (videoredactor) in the credential store that this
-                               app does not have yet: found by their entry NAMES, wherever the old exes live
-  copy_keys(found)             copies them under this app's names (only when the person said yes; never silent)
+  found_keys()                 the keys this app uses (Discogs, TMDB) that are still only in an app's OWN credential entry
+                               (mp3redactor's, videoredactor's, or this app's from before the shared store), not in the
+                               family's shared one: found by their entry NAMES, wherever the exes live
+  copy_keys(found)             shares them with every Redactor (redactor_common's share_keys; only when the person said
+                               yes, never silent; the old entries stay for the apps that do not read the shared keys yet)
   import_folder(folder)        an old app's folder: its notes settings (mp3redactor_settings.ini / videoredactor_settings.ini)
                                and its lookup cache, merged into this app's; returns what was done, in plain lines
 
@@ -20,7 +22,6 @@ from __future__ import annotations
 import configparser
 import os
 import sqlite3
-from dataclasses import dataclass
 from pathlib import Path
 
 from core import notes_settings, settings
@@ -28,8 +29,6 @@ from core.api_keys import APP, KEYS
 from redactor_common.core import secret_store
 
 MP3, VIDEO = "mp3redactor", "videoredactor"
-# old app -> (our key id, the old app's entry name)
-OLD_KEYS = {MP3: ("discogs", "discogs_token"), VIDEO: ("tmdb", "tmdb_api_key")}
 SETTINGS_FILES = {MP3: "mp3redactor_settings.ini", VIDEO: "videoredactor_settings.ini"}
 CACHE_FILES = {MP3: "mp3redactor_notes_cache.sqlite", VIDEO: "videoredactor_notes_cache.sqlite"}
 _TRUE = frozenset({"1", "true", "yes", "on"})
@@ -53,40 +52,28 @@ VIDEO_SETTINGS = {
 }
 
 
-@dataclass
-class FoundKey:
-    app: str  # the old app it comes from
-    key_id: str  # this app's id: 'discogs' / 'tmdb'
-    label: str  # 'Discogs Token'
-    value: str
+def found_keys() -> list:
+    """The keys this app uses that are in some app's own entry but not yet shared (secret_store.UnsharedKey: .label,
+    .app, never the value in a repr). An unreadable store has nothing to offer."""
+    try:
+        found = secret_store.unshared_keys([name for name, _env, _label in KEYS.values()])
+        # The key this app uses now wins over another app's copy: sharing must never quietly change it here.
+        out = []
+        for key in found:
+            own = secret_store.get_secret(APP, key.name).strip()
+            out.append(secret_store.UnsharedKey(key.name, key.label, APP, own) if own else key)
+        return out
+    except Exception:  # noqa: BLE001
+        return []
 
 
-def found_keys() -> list[FoundKey]:
-    """The old apps' keys this app does not have yet (an environment variable counts as having it)."""
-    out = []
-    for app, (key_id, old_name) in OLD_KEYS.items():
-        name, env_var, label = KEYS[key_id]
-        if secret_store.get_secret(APP, name, env_var=env_var).strip():
-            continue
-        try:
-            value = secret_store.get_secret(app, old_name).strip()
-        except Exception:  # noqa: BLE001 -- an unreadable store has nothing to offer
-            value = ""
-        if value:
-            out.append(FoundKey(app, key_id, label, value))
-    return out
-
-
-def copy_keys(found: list[FoundKey]) -> list[str]:
-    """Stores each under this app's name; returns the plain-language problems ('' lines are not returned)."""
-    problems = []
-    for key in found:
-        name, _env, _label = KEYS[key.key_id]
-        try:
-            secret_store.set_secret(APP, name, key.value)
-        except Exception as exc:  # noqa: BLE001 -- e.g. no credential store and no consent to the fallback file
-            problems.append(f"{key.label}: {exc}")
-    return problems
+def copy_keys(found: list) -> list[str]:
+    """Shares them with every Redactor; returns the plain-language problems (e.g. no credential store and no consent to
+    the fallback file), never a value."""
+    try:
+        return secret_store.share_keys(found)
+    except Exception as exc:  # noqa: BLE001
+        return [f"the keys could not be shared ({type(exc).__name__})"]
 
 
 def detect(folder: str | os.PathLike) -> list[str]:

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-06#07 -- The Redactors' shared keys (plan step 11a, D25)
+
+- **The API keys are shared by the Redactors**: one entry per service in the credential store
+  (`<name>@redactor/shared`) instead of one per program. A key saved in Tools > API Keys is the key for every Redactor
+  that uses it, and each row says which others those are. Read: the environment variable, then the shared key, then this
+  program's own key from before. Remove takes the key away for all of them (and this program's old copy).
+- **The first-start offer now shares** the keys still kept by one program only (mp3redactor's Discogs token,
+  videoredactor's TMDB key, or this program's own from before) instead of copying them into this program; the old
+  entries stay for the Redactors that do not read the shared keys yet. When this program had its own copy, that one is
+  shared, so sharing never changes the key in use here. Never silent; File > Import offers it again.
+- **redactor_common 2026-11-06-03** (was 2026-11-06-02): the shared key store (`secret_store.get_key` / `set_key` /
+  `unshared_keys` / `share_keys`, the family's key registry, `SecretField(shared=True)`), and the Discogs client reads
+  the shared token.
+
 ## 2026-11-06#06 -- The full check (plan step 11)
 
 - **Checked on the built exe**: the window starts and opens a library; the command line, run as ABOUT.md says for

@@ -84,9 +84,10 @@ Delete Log removes it.
 
 ## Coming from the ɯP3 or Ʌideo Redactor
 
-At its first start the program offers to copy the Discogs token of the ɯP3 Redactor and the TMDB key of the Ʌideo
-Redactor, if they are saved there and not here (they stay in the old programs too). File > Import from mp3redactor or
-videoredactor… does that again, and also takes over their Create Notes settings (what to create, the Discogs and singles
+At its first start the program offers to share the Discogs token of the ɯP3 Redactor and the TMDB key of the Ʌideo
+Redactor with all the Redactors (see API keys below), if they are still saved in that one program only (they stay
+there too). File > Import from mp3redactor or videoredactor… offers that again, and also takes over their Create Notes
+settings (what to create, the Discogs and singles
 switches, the lookup cache and Wikipedia switches) and their saved lookup answers: point it at the folder the old
 program is in. It only fills in what is not set here; your choices in this program are never overwritten.
 
@@ -95,6 +96,11 @@ program is in. It only fills in what is not set here; your choices in this progr
 Tools > API Keys holds a Discogs token (music) and a TMDB API key (films and series). Both are free to get and are
 kept in your system's credential store, never in a settings file. MusicBrainz and Wikipedia need no key. The
 environment variables `DISCOGS_TOKEN` and `TMDB_API_KEY` win over what is stored.
+
+The keys are shared by the Redactors: one entry per service in the credential store, so a key saved here is the key
+for every Redactor that uses it, and each row says which other Redactors those are (the Discogs token: the ɯP3
+Redactor; the TMDB key: the Ʌideo Redactor). The other Redactors read the shared keys from their next version on;
+until then they keep their own copy, which is never removed by sharing. Remove takes the key away for all of them.
 
 ## History
 

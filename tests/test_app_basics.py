@@ -90,7 +90,7 @@ def test_api_keys_dialog_saves_into_the_credential_store_only(qapp, fake_keyring
     dialog._save(None)
     assert {name: value for (_service, name), value in fake_keyring.data.items()} == {
         "discogs_token": "typed-token", "tmdb_api_key": "typed-key"}
-    assert {service for service, _name in fake_keyring.data} == {"redactor/folderredactor"}
+    assert {service for service, _name in fake_keyring.data} == {"redactor/shared"}  # the family's shared keys (D25)
     settings_file = app_files / "folderredactor_settings.ini"
     assert not settings_file.exists() or "typed" not in settings_file.read_text(encoding="utf-8")
 

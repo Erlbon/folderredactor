@@ -1,6 +1,7 @@
 """Bringing over what mp3redactor and videoredactor knew (core/old_apps.py, plan step 10 / D5): the keys by their names in
-the credential store (offered once at start-up, from File > Import every time, never silent), and the notes settings and
-lookup cache from the folder the person points at, filling only what is not set here."""
+the credential store, offered for sharing with every Redactor (the family's shared key store, plan D25: once at start-up,
+from File > Import every time, never silent), and the notes settings and lookup cache from the folder the person points
+at, filling only what is not set here."""
 
 import configparser
 import sqlite3
@@ -28,20 +29,40 @@ def old_cache(path, entries):
     cache.close()
 
 
-def test_the_old_apps_keys_are_found_by_name_and_copied(fake_keyring):
+def test_the_old_apps_keys_are_found_by_name_and_shared_with_every_redactor(fake_keyring):
     secret_store.set_secret("mp3redactor", "discogs_token", "DISCOGS-OLD")
     secret_store.set_secret("videoredactor", "tmdb_api_key", "TMDB-OLD")
+    assert api_keys.get_key("discogs") is None  # another app's own entry is never read silently
     found = old_apps.found_keys()
-    assert [(k.app, k.key_id) for k in found] == [("mp3redactor", "discogs"), ("videoredactor", "tmdb")]
+    assert [(k.app, k.name) for k in found] == [("mp3redactor", "discogs_token"), ("videoredactor", "tmdb_api_key")]
     assert old_apps.copy_keys(found) == []
     assert api_keys.get_key("discogs") == "DISCOGS-OLD" and api_keys.get_key("tmdb") == "TMDB-OLD"
-    assert old_apps.found_keys() == []  # this app has them now: nothing more to offer
+    assert fake_keyring.data[("redactor/shared", "discogs_token")] == "DISCOGS-OLD"  # one shared entry for the family
+    assert fake_keyring.data[("redactor/mp3redactor", "discogs_token")] == "DISCOGS-OLD"  # the old one stays
+    assert old_apps.found_keys() == []  # shared now: nothing more to offer
 
 
-def test_a_key_this_app_has_already_is_not_offered(fake_keyring):
+def test_the_key_this_app_uses_wins_over_another_apps_copy(fake_keyring):
     secret_store.set_secret("mp3redactor", "discogs_token", "DISCOGS-OLD")
     secret_store.set_secret("folderredactor", "discogs_token", "MINE")
-    assert old_apps.found_keys() == [] and api_keys.get_key("discogs") == "MINE"
+    assert api_keys.get_key("discogs") == "MINE"
+    [found] = old_apps.found_keys()
+    assert (found.app, found.value) == ("folderredactor", "MINE")  # sharing must not change the key used here
+    old_apps.copy_keys([found])
+    assert api_keys.get_key("discogs") == "MINE" and secret_store.get_key("discogs_token", "mp3redactor") == "MINE"
+
+
+def test_the_api_keys_dialog_saves_for_the_whole_family(qapp, fake_keyring):
+    from gui.api_keys_dialog import ApiKeysDialog
+
+    dlg = ApiKeysDialog()
+    field = dlg.fields["tmdb"]
+    assert field.shared and "Not set" in field.source_label.text()
+    field.edit.setText("TMDB-NEW")
+    dlg._save(None)
+    assert api_keys.get_key("tmdb") == "TMDB-NEW" and secret_store.get_key("tmdb_api_key", "videoredactor") == "TMDB-NEW"
+    assert "shared with videoredactor" in field.source_label.text()
+    dlg.deleteLater()
 
 
 def test_the_mp3redactor_settings_fill_only_what_is_not_set_here(tmp_path):
@@ -85,7 +106,8 @@ def test_the_keys_are_offered_once_at_start_up_and_never_copied_without_a_yes(wi
     asked = []
     monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: asked.append(a[2]) or QMessageBox.StandardButton.No))
     window.offer_old_keys()
-    assert len(asked) == 1 and "Discogs Token from mp3redactor" in asked[0] and api_keys.get_key("discogs") is None
+    assert len(asked) == 1 and "Discogs Token (now in mp3redactor only)" in asked[0] and api_keys.get_key("discogs") is None
+    assert "Share these keys with all the Redactors?" in asked[0]
     window.offer_old_keys()
     assert len(asked) == 1  # at start-up only once
     monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes))

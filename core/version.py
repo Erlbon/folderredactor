@@ -4,6 +4,6 @@ core/version_bump.py), which reads the real system clock: never hand-edit APP_VE
 """
 
 APP_NAME = "The \u2132older Redactor"  # "\u2132" = Ⅎ, TURNED CAPITAL F (Letterlike Symbols), the first letter turned like Ʌideo
-APP_VERSION = "2026-11-06#06"
+APP_VERSION = "2026-11-06#07"
 RELEASE_LABEL = "v0.1"
 APP_REPO_URL = "https://github.com/erlbon/folderredactor"

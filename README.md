@@ -38,7 +38,7 @@ hold no control characters; pre-push: the tests pass).
 | `core/version.py` | `APP_NAME` (the turned F written as `"\u2132"`), `APP_VERSION` (set by `bump_version.py`) |
 | `core/app_paths.py` | Where the app's own files live: next to the exe, never in a library |
 | `core/settings.py` | `folderredactor_settings.ini`, File > Recent |
-| `core/api_keys.py` | Discogs token and TMDB key in the credential store (app `folderredactor`) |
+| `core/api_keys.py` | Discogs token and TMDB key: the Redactor family's shared keys (redactor_common `secret_store.get_key`; this app's own old entry `folderredactor` is the fallback) |
 | `core/history.py` | Tools > History: the shared journal, opt-in, with the note-undo handlers |
 | `core/notes_engine.py` | The one engine core of every media type: the run loop, write, History record, undo, summary, the shared Wikipedia fetch; and what an engine must provide |
 | `core/notes_settings.py` | What Create Notes remembers for every media type (`[notes]`), the lookup cache's place |

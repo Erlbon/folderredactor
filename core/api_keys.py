@@ -1,14 +1,13 @@
 """
 core/api_keys.py
 
-The Discogs token and the TMDB API key, kept in redactor_common's secret store (the OS credential store) under this
-app's own name, never in the settings file. An environment variable wins over the store (DISCOGS_TOKEN,
-TMDB_API_KEY), as in mp3redactor and videoredactor.
+The Discogs token and the TMDB API key: the Redactor family's SHARED keys (redactor_common's secret store, decided
+2026-11-06, plan D25): one entry per service for every Redactor (`<name>@redactor/shared` in the OS credential store),
+never in the settings file. Read: an environment variable (DISCOGS_TOKEN, TMDB_API_KEY) > the shared entry > this app's
+own old entry. Saved (Tools > API Keys): to the shared entry, so mp3redactor / videoredactor see it too once they read
+the shared keys. A key that is still only in an app's own entry is offered for sharing (core/old_apps.py).
 
-Copying the keys over from mp3redactor's and videoredactor's own entries (found by name, wherever their exes live) is
-offered on first start in a later step (plan D5); nothing here reads another app's entries.
-
-The service/entry names below are permanent: renaming one orphans every user's stored key.
+The entry names below are permanent: renaming one orphans every user's stored key.
 """
 
 from __future__ import annotations
@@ -35,7 +34,7 @@ _FALLBACK_KEY = "allow_unencrypted_fallback"
 
 def get_key(key_id: str) -> Optional[str]:
     name, env_var, _label = KEYS[key_id]
-    return secret_store.get_secret(APP, name, env_var=env_var).strip() or None
+    return secret_store.get_key(name, APP, env_var=env_var).strip() or None
 
 
 def apply_fallback_preference() -> Callable[[], None]:

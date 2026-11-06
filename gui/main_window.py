@@ -325,8 +325,9 @@ class MainWindow(QMainWindow):
         self.offer_old_keys(asked_by_person=True)
 
     def offer_old_keys(self, asked_by_person: bool = False) -> None:
-        """The Discogs token / TMDB key of the old apps, by their names in the credential store: offered, never copied
-        silently. At start-up only once ([keys] import_offered); from the File menu every time."""
+        """The keys this program uses (Discogs token, TMDB key) that are still only in one app's own credential entry
+        (mp3redactor's, videoredactor's, or this program's from before): offered for sharing with every Redactor, never
+        shared silently. At start-up only once ([keys] import_offered); from the File menu every time."""
         from core import old_apps
 
         if not asked_by_person and settings.get_setting("keys", "import_offered", "") == "1":
@@ -336,19 +337,20 @@ class MainWindow(QMainWindow):
             settings.set_setting("keys", "import_offered", "1")
         if not found:
             if asked_by_person:
-                self.status_bar.showMessage("No API keys of mp3redactor or videoredactor to copy (or this program has them).")
+                self.status_bar.showMessage("No API keys to share: they are shared already, or no Redactor has them.")
             return
-        names = "\n".join(f"  {k.label} from {k.app}" for k in found)
+        names = "\n".join(f"  {k.label} (now in {k.app} only)" for k in found)
         answer = QMessageBox.question(
-            self, "API keys", f"Copy these keys into this program (Tools > API Keys)?\n\n{names}\n\nThey stay in the "
-                              "other programs too.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            self, "API keys", f"Share these keys with all the Redactors?\n\n{names}\n\nThen a key is entered once (Tools > "
+                              "API Keys in any of them) and every Redactor that uses it has it. Nothing is removed.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if answer != QMessageBox.StandardButton.Yes:
             return
         problems = old_apps.copy_keys(found)
         if problems:
-            QMessageBox.warning(self, "API keys", "Not copied:\n" + "\n".join(problems))
+            QMessageBox.warning(self, "API keys", "Not shared:\n" + "\n".join(problems))
         else:
-            self.status_bar.showMessage(f"{len(found)} key(s) copied.")
+            self.status_bar.showMessage(f"{len(found)} key(s) shared with the Redactors.")
 
     # --- Tools ----------------------------------------------------------------------------------------------------
 

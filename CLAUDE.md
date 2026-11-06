@@ -13,6 +13,7 @@ The Ⅎolder Redactor (`APP_NAME` "The \u2132older Redactor", Ⅎ = U+2132 TURNE
 - **Into a library this app writes `.md` folder notes and nothing else.** No settings, cache, report, log, backup, marker or index in a library tree: they live next to the exe (`core/app_paths.py`) or where `--output` points. The clean-up's renames change names, they add nothing.
 - Nothing is written without a yes: notes are reviewed (shared `NotesReviewDialog`), renames are reviewed (Renames tab), and both are undoable from Tools > History. History is opt-in (off by default).
 - The lookup clients are redactor_common's `core/lookups/` (MusicBrainz, Discogs, TMDB, release names, folder covers) and `core/wikipedia.py`; `core/__init__.py` configures them with this app's User-Agent and key store (`core/api_keys.py`, app name `folderredactor`).
+- The API keys are the Redactor family's SHARED keys (plan D25, 2026-11-06): redactor_common's `secret_store.get_key` / `set_key` (`<name>@redactor/shared`; this app's own old entry is only the fallback), `SecretField(shared=True)` in Tools > API Keys. A new key is added to `secret_store.FAMILY_KEYS` in redactor_common first.
 - Write `APP_NAME`'s turned F as the escape `"\u2132"` in code, never pasted through a heredoc or a patch script.
 - Every new CLI command goes into `foldercli.COMMANDS` and the "Command line" section of ABOUT.md (tests/test_cli.py checks both).
 
