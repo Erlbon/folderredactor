@@ -3,102 +3,17 @@ and the real write function, recorded-shape TMDB / Wikipedia replies as the netw
 dialogs driven by their widgets with QTest clicks. The script is a generator stepped by a timer, so the modal dialogs can be
 driven. (Moved from videoredactor with the notes, plan step 5; the `window` fixture is conftest's.)"""
 
-import os
-import time
-import traceback
 from pathlib import Path
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+import pytest
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QFileDialog
 
-import pytest  # noqa: E402
-from PyQt6.QtCore import Qt, QTimer  # noqa: E402
-from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox  # noqa: E402
-
-from core import notes_settings  # noqa: E402
-from core.video import settings as video_settings  # noqa: E402
-from gui.video_notes import (  # noqa: E402
-    folder_caption, folder_info, scope_candidates, scope_hint, title_folders,
-)
-from redactor_common.gui.notes_review_dialog import NotesReviewDialog  # noqa: E402
-from redactor_common.gui.notes_scope_dialog import NotesScopeDialog  # noqa: E402
-from tests.video_helpers import BREAKING_BAD, fake_fetchers, hit, make_movie, make_series, touch  # noqa: E402
-
-
-class Script:
-    def __init__(self, generator):
-        self.gen, self.error, self.done = generator, "", False
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.tick)
-        self.busy = False
-        self.timer.start(20)
-
-    def tick(self):
-        if self.busy or self.done:
-            return
-        self.busy = True
-        try:
-            next(self.gen)
-        except StopIteration:
-            self.done = True
-        except BaseException:  # noqa: BLE001
-            self.error, self.done = traceback.format_exc(), True
-        finally:
-            self.busy = False
-        if self.done:
-            self.timer.stop()
-            for w in QApplication.topLevelWidgets():
-                if isinstance(w, (NotesReviewDialog, NotesScopeDialog)) and w.isVisible():
-                    w.done(0)
-
-
-def review():
-    found = [w for w in QApplication.topLevelWidgets() if isinstance(w, NotesReviewDialog) and w.isVisible()]
-    return found[0] if found else None
-
-
-def scope():
-    found = [w for w in QApplication.topLevelWidgets() if isinstance(w, NotesScopeDialog) and w.isVisible()]
-    return found[0] if found else None
-
-
-def wait(cond, what, timeout=30):
-    end = time.perf_counter() + timeout
-    while not cond():
-        assert time.perf_counter() < end, what
-        yield
-
-
-def click(widget):
-    QTest.mouseClick(widget, Qt.MouseButton.LeftButton)
-
-
-@pytest.fixture
-def boxes(monkeypatch):
-    seen = []
-    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda p, t, x, *a, **k: seen.append((t, x)) or QMessageBox.StandardButton.Ok))
-    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda p, t, x, *a, **k: seen.append((t, x)) or QMessageBox.StandardButton.Ok))
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda p, t, x, *a, **k: seen.append((t, x)) or QMessageBox.StandardButton.No))
-    return seen
-
-
-def run(window, monkeypatch, folder, fetchers, scenario, must_finish=True):
-    """Notes > Create Notes: the scope question first (the folder is picked with Another folder...), then the scenario."""
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: str(folder)))
-    window.notes_fetchers = lambda: fetchers
-
-    def with_scope_step():
-        yield from wait(lambda: scope() is not None, "the scope dialog")
-        dialog = scope()
-        dialog.other_radio.click()
-        click(dialog.continue_button)
-        yield from scenario()
-
-    script = Script(with_scope_step())
-    window.actions_by_key["create_notes"].trigger()
-    script.timer.stop()
-    assert script.error == "", script.error
-    assert script.done or not must_finish, "the scenario did not finish"
+from core import notes_settings
+from core.video import settings as video_settings
+from gui.video_notes import folder_caption, folder_info, scope_candidates, scope_hint, title_folders
+from tests.notes_gui_helpers import Script, boxes, click, review, run, scope, wait  # noqa: F401 -- boxes: a fixture
+from tests.video_helpers import BREAKING_BAD, fake_fetchers, hit, make_movie, make_series, touch
 
 
 def test_a_single_series_opens_one_at_a_time_and_write_note_writes_series_md(window, monkeypatch, tmp_path, boxes):
@@ -202,6 +117,7 @@ def test_nothing_to_write_a_note_for_says_why(window, monkeypatch, tmp_path, box
 def test_the_scope_question_shows_what_each_folder_would_get_and_the_kinds_are_remembered(window, monkeypatch, tmp_path, boxes):
     make_series(tmp_path / "Library")
     monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: str(tmp_path / "Library")))
+    notes_settings.set_last_media("video")  # no library open: the kind used last time (an open one would be a choice itself)
     window.notes_fetchers = lambda: fake_fetchers()
 
     def steps():

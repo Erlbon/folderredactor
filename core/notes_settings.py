@@ -6,6 +6,7 @@ cache lives. Small on purpose: the window, the command line and the tests all go
 media type adds is its own module (core/video/settings.py: [notes.video]).
 
   [notes] last_folder    the folder the person used last time
+  [notes] media          'music' / 'video': the kind of library used last time (when a library's files cannot tell)
   [notes] include_subfolders  '1' (default) / '0': the folders below the chosen one get notes too
   [notes] cache         '1' (default) / '0': keep answers of earlier lookups on disk
   [notes] dialog_size    'WxH' of the review page
@@ -44,6 +45,20 @@ def last_folder() -> str:
 
 def set_last_folder(folder: str) -> None:
     settings.set_setting(SECTION, "last_folder", folder)
+
+
+MEDIA = ("music", "video")
+
+
+def last_media() -> str:
+    """'music' or 'video': the kind of library notes were made for last time ([notes] media; '' = never)."""
+    value = _get("media").strip().lower()
+    return value if value in MEDIA else ""
+
+
+def set_last_media(media: str) -> None:
+    if media in MEDIA:
+        settings.set_setting(SECTION, "media", media)
 
 
 def include_subfolders() -> bool:

@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QCheckBox, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout,
 )
 
-from core import app_paths, history, notes_settings
+from core import app_paths, history, notes_debug, notes_settings
 from redactor_common.core.selfupdate import KEY_CHECK_FOR_UPDATES, UpdateSettings
 from redactor_common.gui.owned_dialog import OwnedDialog
 
@@ -52,6 +52,18 @@ class PreferencesDialog(OwnedDialog):
                                                "certainly the right one")
         self.notes_wikipedia_check.setChecked(notes_settings.wikipedia_enabled())
         notes_layout.addWidget(self.notes_wikipedia_check)
+        debug_row = QHBoxLayout()
+        self.notes_debug_check = QCheckBox("Log the review list for troubleshooting (off by default)")
+        self.notes_debug_check.setToolTip("Only counts, scroll positions and folder names, next to the program. Never file "
+                                          "contents or note text.")
+        self.notes_debug_check.setChecked(notes_settings.debug_log_enabled())
+        debug_row.addWidget(self.notes_debug_check)
+        self.delete_debug_button = QPushButton("Delete Log")
+        self.delete_debug_button.setEnabled(notes_debug.log_exists())
+        self.delete_debug_button.clicked.connect(self._on_delete_debug_log)
+        debug_row.addWidget(self.delete_debug_button)
+        debug_row.addStretch()
+        notes_layout.addLayout(debug_row)
         layout.addWidget(notes_box)
 
         self.update_settings = UpdateSettings(app_paths.updates_json_path())
@@ -82,6 +94,14 @@ class PreferencesDialog(OwnedDialog):
         else:
             QMessageBox.information(self, "Delete History", "The history was moved to the Recycle Bin.")
 
+    def _on_delete_debug_log(self) -> None:
+        problem = notes_debug.delete_log()
+        if problem:
+            QMessageBox.warning(self, "Delete Log", problem)
+        else:
+            QMessageBox.information(self, "Delete Log", "The troubleshooting log was deleted.")
+        self.delete_debug_button.setEnabled(notes_debug.log_exists())
+
     def _on_ok(self) -> None:
         if self.history_check.isChecked() != history.history_enabled():
             history.set_history_enabled(self.history_check.isChecked())
@@ -89,6 +109,9 @@ class PreferencesDialog(OwnedDialog):
             notes_settings.set_cache_enabled(self.notes_cache_check.isChecked())
         if self.notes_wikipedia_check.isChecked() != notes_settings.wikipedia_enabled():
             notes_settings.set_wikipedia_enabled(self.notes_wikipedia_check.isChecked())
+        if self.notes_debug_check.isChecked() != notes_settings.debug_log_enabled():
+            notes_settings.set_debug_log_enabled(self.notes_debug_check.isChecked())
+            notes_debug.set_enabled(self.notes_debug_check.isChecked())  # the running app follows at once
         if self.updates_check.isChecked() != self.update_settings.enabled:
             self.update_settings.update(**{KEY_CHECK_FOR_UPDATES: self.updates_check.isChecked()})
         self.accept()

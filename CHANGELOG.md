@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-11-06#04 -- Music notes in the window, on mp3redactor's review page (plan step 9)
+
+- **Notes > Create Notes works for music libraries**: artist, album and genre / collection notes, with mp3redactor's
+  "What to create" choices (artist notes only at first). The window works out from the library's file names whether it
+  is music or video (when it cannot tell: the kind used last time, else it asks).
+- **The review page is mp3redactor's**, now redactor_common's shared page (Erlend, 2026-11-06: the template for every
+  media type). Video gets it too: the list never jumps after a pick (rows update in place, the scroll position stays), a
+  line under the list says why a row cannot be ticked, notes from the first versions are flagged, and a candidate that
+  cannot be used says why.
+- **Music's extras on that page**: Build this folder as (artist, album, genre / collection, skip), Look up by link
+  (checked before anything is fetched), Create a minimal note from the tags, Genres covered, the Local files tab
+  (cover, tracks and tags as the files carry them), Tick best guesses, and "Create the album notes for these artists too"
+  after artist notes.
+- **Tools > Preferences**: "Log the review list for troubleshooting" (off by default) with a Delete Log button.
+- **redactor_common 2026-11-06-02** (was 2026-11-06-01), the release that made mp3redactor's page the shared one.
+- Tests: the music window-flow scenarios of mp3redactor, rewritten for this window (it opens a library folder instead of
+  loading files into a table), and the Local files view's own tests; one driving helper for the music and video
+  window-flow tests.
+
 ## 2026-11-06#03 -- The music engine, on one engine core with video (plan step 8)
 
 - **The music engine moved from mp3redactor** (`core/music/flow.py`, with its request cache, phase timer, time

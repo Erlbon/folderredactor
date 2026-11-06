@@ -13,18 +13,50 @@ What it writes into a library: `.md` files that explain a folder's contents, and
 reports and history live next to the program.
 
 Part of the Redactor family (the ƎPUB, ɯP3, Ʌideo and ƆBZ Redactors). This is an early build: folder notes work
-for video libraries (series and films, moved here from the Ʌideo Redactor); music notes and the Clean Up menu are
-shown greyed until their parts are built.
+for music libraries (artists, albums, genres, moved here from the ɯP3 Redactor) and video libraries (series and films,
+from the Ʌideo Redactor) in the window; on the command line `notes` does video only so far. The Clean Up menu is shown
+greyed until it is built.
 
 ## Opening a library
 
 File > Open Library Folder (Ctrl+Shift+O), File > Recent, a folder dropped on the window, or a folder on the command
 line (`folderredactor.exe D:\Music`).
 
-## Folder notes (video)
+## Folder notes
 
-Notes > Create Notes first asks which folder: the library you opened, the folder you used last time, or another one,
-and which notes to make. A series folder (episodes named `S01E02`, directly in it or in Season folders) gets a
+Notes > Create Notes works out from the file names of the library you opened whether it is a music or a video library
+(when it cannot tell, it takes the kind you used last time, and the first time it asks). Then it asks which folder: the
+library you opened, the folder you used last time, or another one, and which notes to make.
+
+The review page is the same for both: one note at a time for a single folder (or one artist with its albums), a list
+with ticks for several. The list never jumps when you pick something: the row is built again where it is. Under the
+list a line says why a row cannot be ticked yet. Only what you say yes to is written, with `status: draft` in the note,
+and a folder that already has a note (`artist.md`, `author.md`, `series.md`, `album.md` or `about.md`, any letter case)
+is never touched.
+
+### Music
+
+An artist folder (album folders below it) gets an `artist.md`, an album folder (music files in it, or in CD1 / Disc 2
+folders) an `album.md`, a genre or collection folder (artist folders below it; `Various Artists`, `Soundtracks`; a
+folder whose name starts with `_`) an `about.md`. MP3, FLAC, M4A, Ogg and Opus files all count. Artist notes only are
+ticked at first ("What to create"); album notes are slower (about four requests each). After artist notes are written
+the page offers the album notes of those artists with one click.
+
+Each folder is looked up at MusicBrainz and Wikipedia, and at Discogs when you saved a Discogs token. A match is
+*confident* only when the albums in your folder are in that artist's discography and no other artist fits as well; two
+bands with one name, or a "Greatest Hits" anyone could have, stay uncertain. For an uncertain folder the page offers:
+the candidates found (with how many of your albums each holds), **Build this folder as** (artist, album, genre or
+collection, or skip it), **Look up by link** (paste the right MusicBrainz, Discogs, Wikipedia or Wikidata page; nothing
+is fetched from any other site), **Create a minimal note from the tags** (no online source, and it says so), and the
+**Local files** tab: the cover, the track list and the tags as the files carry them. **Tick best guesses** in the list
+ticks the uncertain folders whose top candidate holds one of your albums (still drafts, still only written on a click).
+A genre folder has a **Genres covered** box: edit it and look it up again.
+
+The notes the ɯP3 Redactor already wrote count as this program's own: they are not offered again.
+
+### Video
+
+A series folder (episodes named `S01E02`, directly in it or in Season folders) gets a
 `series.md`; a film folder (one film, perhaps with a part 2 or a trailer) gets an `about.md`. A folder of many loose
 films, or one called `Movies` or `Downloads`, gets no note and its subfolders are looked at instead.
 
@@ -32,15 +64,16 @@ Each folder is looked up at TMDB (your own key, see API keys below). A match is 
 one title with the folder's name (and year), and for a series the seasons and episode numbers in the folder fit it;
 when several series share a name, the air dates in the file names or the exact episode counts can still tell them
 apart. The introduction comes from Wikipedia only when Wikidata links the article to the title's IMDb id, never from a
-guess by name. Then the review page opens: one note at a time for a single folder, a list with ticks for several.
-Uncertain folders show their candidates for you to pick. Only what you say yes to is written, with `status: draft`
-in the note. A folder that already has a note (`artist.md`, `author.md`, `series.md`, `album.md` or `about.md`, any
-letter case) is never touched.
+guess by name. Uncertain folders show their candidates for you to pick.
 
 The notes the Ʌideo Redactor already wrote count as this program's own: they are not offered again.
 
+### Preferences
+
 Tools > Preferences > Create Notes switches the lookup cache (answers kept next to the program, so a second run is
-quick) and the Wikipedia introduction; Tools > Clear Lookup Cache forgets the saved answers.
+quick) and the Wikipedia introduction; Tools > Clear Lookup Cache forgets the saved answers. "Log the review list for
+troubleshooting" is off by default: it writes only counts, scroll positions and folder names next to the program, and
+Delete Log removes it.
 
 ## API keys
 

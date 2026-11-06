@@ -1,9 +1,9 @@
 """
 core/notes_debug.py -- a troubleshooting log for the Create Notes review list, OFF unless asked for.
 
-On when the environment variable FOLDERREDACTOR_NOTES_DEBUG=1 is set, or when [notes] debug_log is on in the settings (off by
-default; the Preferences tick box and its delete button come with the music review page, plan step 9, the only caller of
-record()). It writes `folderredactor_notes_debug.log` next to the settings file and
+On when the environment variable FOLDERREDACTOR_NOTES_DEBUG=1 is set, or when Preferences > Create Notes > "Log the review
+list for troubleshooting" is ticked ([notes] debug_log, off by default). It writes `folderredactor_notes_debug.log` next to
+the settings file and
 records only: what happened (a step name), how many rows the list has, the scroll values, which row is current (its index) and
 the folder NAMES of the rows touched. Never file contents, note text or paths above the folder name. Preferences can delete it.
 Nothing is created, and nothing is written, while it is off. A logging failure is swallowed: it never disturbs the list.

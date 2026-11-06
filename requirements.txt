@@ -1,4 +1,4 @@
-﻿# Python dependencies for The Folder Redactor (folderredactor).
+# Python dependencies for The Folder Redactor (folderredactor).
 
 PyQt6>=6.6
 # Reading the tags of audio files for the music notes (MP3, FLAC, M4A, Ogg).
@@ -11,7 +11,7 @@ keyring>=24
 
 # Shared UI/core code and the lookup clients of the Redactor family (github.com/Erlbon/redactor_common), pinned to
 # a tag, never @main.
-redactor_common @ git+https://github.com/Erlbon/redactor_common.git@2026-11-06-01
+redactor_common @ git+https://github.com/Erlbon/redactor_common.git@2026-11-06-02
 
 # For building the .exe:
 pyinstaller>=6.3

@@ -13,7 +13,7 @@ here with the music review page and the command line that set them (plan steps 9
 from __future__ import annotations
 
 from core import settings
-from core.music.kinds import kinds_text, parse_kinds
+from core.music.kinds import kinds_text, parse_kinds  # noqa: F401 -- kinds_text / parse_kinds: the window uses them from here
 
 SECTION = "notes.music"
 

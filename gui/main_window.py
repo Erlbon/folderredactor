@@ -2,8 +2,8 @@
 gui/main_window.py
 
 The \u2132older Redactor's window: the family's menu skeleton with every menu of the plan in place, File > Open
-Library Folder / Recent, a folder dropped on the window, Notes > Create Notes (video libraries so far: series.md and
-about.md, gui/video_notes.py), Tools > API Keys / Clear Lookup Cache / History / Preferences, and Help. The entries
+Library Folder / Recent, a folder dropped on the window, Notes > Create Notes (music or video, guessed from the library:
+gui/music_notes.py, gui/video_notes.py), Tools > API Keys / Clear Lookup Cache / History / Preferences, and Help. The entries
 whose steps have not landed yet are shown greyed: disable, never hide.
 
 Menus (plan section 4): File (Open Library Folder, Recent, Exit), Edit (Undo), View (Command Palette), Notes (Create
@@ -124,9 +124,9 @@ class MainWindow(QMainWindow):
             app_menus=[
                 AppMenu(MENU_NOTES, [
                     MenuAction("create_notes", "&Create Notes…", self._on_create_notes,
-                               tooltip="Draft the folder notes of a video library (series.md, about.md) and write the "
-                                       "ones you say yes to. Music comes with a later step.",
-                               keywords="notes series film movie about tmdb wikipedia"),
+                               tooltip="Draft the folder notes of a music library (artist.md, album.md, about.md) or a "
+                                       "video library (series.md, about.md) and write the ones you say yes to.",
+                               keywords="notes artist album genre series film movie about musicbrainz discogs tmdb wikipedia"),
                     later("refresh_old_notes", "&Refresh Old Notes…", "Draft a new version of notes already written"),
                     Separator(),
                     later("switch_view", "&Switch View", "Between one note at a time and the list with ticks"),
@@ -233,26 +233,58 @@ class MainWindow(QMainWindow):
 
     # --- Notes ----------------------------------------------------------------------------------------------------
 
+    def notes_media(self) -> str:
+        """'music' or 'video' for Notes > Create Notes: guessed from the open library (else the last notes folder) by
+        its file names; too close to call, the kind used last time; never used before, asked. '' = the person cancelled."""
+        from core.media_guess import guess_media
+
+        start = self.library_folder or notes_settings.last_folder()
+        media = (guess_media(start) if start else "") or notes_settings.last_media()
+        return media or self._ask_media()
+
+    def _ask_media(self) -> str:
+        box = QMessageBox(QMessageBox.Icon.Question, "Create Notes",
+                          "Is this a music library or a video library? (Open the library folder first and this is "
+                          "worked out from its files.)", QMessageBox.StandardButton.Cancel, self)
+        music = box.addButton("Music", QMessageBox.ButtonRole.AcceptRole)
+        video = box.addButton("Video", QMessageBox.ButtonRole.AcceptRole)
+        box.exec()
+        clicked = box.clickedButton()
+        box.deleteLater()
+        return "music" if clicked is music else "video" if clicked is video else ""
+
     def _on_create_notes(self) -> None:
-        """Notes > Create Notes...: ALWAYS asks which folder first, as a short list (the library folder you opened, one
-        level up, the last notes folder, Another folder...). The review page is redactor_common's, run by
-        gui/video_notes.py. Video libraries only so far: the media-type guess comes with music (plan step 10)."""
-        from gui.video_notes import scope_candidates, scope_question
+        """Notes > Create Notes...: music or video first (notes_media), then ALWAYS which folder, as a short list (the
+        library folder you opened, one level up, the last notes folder, Another folder...). The review page is
+        redactor_common's, run by gui/music_notes.py or gui/video_notes.py."""
+        from gui import music_notes, video_notes
+        from core.music import settings as music_settings
         from redactor_common.core.notes_scope import merge_choices
 
-        choices = merge_choices(scope_candidates([], [], self.library_folder, notes_settings.last_folder()))
-        folder, kinds, outdated = scope_question(
+        media = self.notes_media()
+        if not media:
+            return
+        hook, kind_settings = (music_notes, music_settings) if media == "music" else (video_notes, video_settings)
+        choices = merge_choices(video_notes.scope_candidates([], [], self.library_folder, notes_settings.last_folder()))
+        folder, kinds, outdated = hook.scope_question(
             self, choices, notes_settings.include_subfolders(), notes_settings.set_include_subfolders,
-            notes_settings.last_folder() or self.library_folder, video_settings.kinds_text(video_settings.kinds()))
+            notes_settings.last_folder() or self.library_folder, kind_settings.kinds_text(kind_settings.kinds()))
         if not folder:
             return
         notes_settings.set_last_folder(folder)
-        video_settings.set_kinds(kinds)
-        self._run_create_notes([folder], notes_settings.include_subfolders(), video_settings.parse_kinds(kinds), outdated)
+        notes_settings.set_last_media(media)
+        kind_settings.set_kinds(kinds)
+        self._run_create_notes(media, [folder], notes_settings.include_subfolders(), kind_settings.parse_kinds(kinds),
+                               outdated)
 
-    def _run_create_notes(self, paths: list, include_subfolders: bool, kinds: tuple, include_outdated: bool = False) -> None:
-        from core.video.flow import live_fetchers
-        from gui.video_notes import create_notes
+    def _run_create_notes(self, media: str, paths: list, include_subfolders: bool, kinds: tuple,
+                          include_outdated: bool = False) -> None:
+        if media == "music":
+            from core.music.flow import live_fetchers
+            from gui.music_notes import create_notes
+        else:
+            from core.video.flow import live_fetchers
+            from gui.video_notes import create_notes
 
         create_notes(
             self, paths, include_subfolders, self.notes_fetchers or live_fetchers,
