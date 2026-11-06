@@ -1,19 +1,7 @@
-"""The parts of the music note text that need no engine (core/music/render.py). mp3redactor's engine tests
-(tests/test_notes_flow.py) come with the engine, plan step 8."""
+"""What carries over from mp3redactor's notes (core/music/render.py): the note format, so its notes count as current.
+The note text itself is tested through the engine (test_music_flow.py, test_music_discography.py ...)."""
 
-from pathlib import Path
-
-from core.music.local import LocalTrack
-from core.music.render import CURRENT_NOTE_FORMAT, TrackInfo, compare_tracks
-
-
-def test_comparison_pairs_equal_titles_even_when_numbers_and_durations_differ():
-    tracks = [TrackInfo(1, 1, "Sleepwalk", 193), TrackInfo(1, 5, "Astradyne", 428)]
-    local = [LocalTrack(path=Path("01 Astradyne.mp3"), title="Astradyne", track=1, seconds=12.0),
-             LocalTrack(path=Path("99 Bonus.flac"), title="Bonus", track=99, seconds=60.0)]
-    result = compare_tracks(local, tracks)
-    assert [(t.title, f.name) for t, f in result.present] == [("Astradyne", "01 Astradyne.mp3")]
-    assert [t.title for t in result.missing] == ["Sleepwalk"] and [f.name for f in result.extra] == ["99 Bonus.flac"]
+from core.music.render import CURRENT_NOTE_FORMAT
 
 
 def test_a_current_note_written_by_mp3redactor_counts_as_current_here(tmp_path):

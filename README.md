@@ -5,10 +5,11 @@ media server shows (`artist.md`, `album.md`, `series.md`, `about.md`), reviewed 
 Job 2 checks a library's folder tree against its conventions and renames only what is said yes to, with undo. What
 a user sees is in [ABOUT.md](ABOUT.md); this file is for working on the code.
 
-Status: plan steps 5-7. Folder notes for video libraries work (moved from videoredactor: Notes > Create Notes and the
-`notes` command). The music notes' modules have moved from mp3redactor (`core/music/`, reading MP3, FLAC, M4A, Ogg and
-Opus through mutagen), but not their engine yet (step 8), so nothing in the window or the command line uses them; the
-Clean Up menu is still greyed.
+Status: plan steps 5-8. Folder notes for video libraries work (moved from videoredactor: Notes > Create Notes and the
+`notes` command). The music notes and their engine have moved from mp3redactor (`core/music/`, reading MP3, FLAC, M4A,
+Ogg and Opus through mutagen); both media types write, record and undo through one engine core (`core/notes_engine.py`).
+The music review page (step 9) and the music side of the window and the `notes` command (step 10) are still to come, so
+nothing a user can reach runs the music engine yet; the Clean Up menu is still greyed.
 
 ## Running and testing
 
@@ -36,9 +37,10 @@ hold no control characters; pre-push: the tests pass).
 | `core/settings.py` | `folderredactor_settings.ini`, File > Recent |
 | `core/api_keys.py` | Discogs token and TMDB key in the credential store (app `folderredactor`) |
 | `core/history.py` | Tools > History: the shared journal, opt-in, with the note-undo handlers |
+| `core/notes_engine.py` | The one engine core of every media type: the run loop, write, History record, undo, summary, the shared Wikipedia fetch; and what an engine must provide |
 | `core/notes_settings.py` | What Create Notes remembers for every media type (`[notes]`), the lookup cache's place |
 | `core/video/` | Video notes (from videoredactor): `local` (which folders), `tmdb`, `render`, `flow` (the engine), `settings` (`[notes.video]`) |
-| `core/music/` | Music notes (from mp3redactor): `tags` (mutagen reader, every format), `local`, `numbers`, `match`, `level`, `kinds`, `link`, `musicbrainz`, `discogs`, `render`, `evidence`; the engine comes with step 8 |
+| `core/music/` | Music notes (from mp3redactor): `flow` (the engine), `tags` (mutagen reader, every format), `local`, `numbers`, `match`, `level`, `kinds`, `link`, `musicbrainz`, `discogs`, `cache` (Discogs wrapper), `phases`, `timing`, `review`, `render`, `evidence`, `settings` (`[notes.music]`) |
 | `core/notes_debug.py` | The opt-in troubleshooting log of the review list (off by default) |
 | `gui/main_window.py` | The window and the family's menu skeleton |
 | `gui/video_notes.py` | Video's hook on redactor_common's scope question, run and review page |

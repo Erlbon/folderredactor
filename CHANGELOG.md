@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-11-06#03 -- The music engine, on one engine core with video (plan step 8)
+
+- **The music engine moved from mp3redactor** (`core/music/flow.py`, with its request cache, phase timer, time
+  estimates and review rules): artist, album, genre and collection notes from MusicBrainz, Wikipedia and Discogs,
+  verified by the albums really in the folder. No menu or command runs it yet: the music review page and the music
+  side of Notes > Create Notes and `notes` follow (plan steps 9-10).
+- **One engine core for every media type** (`core/notes_engine.py`): music and video now run, write, record in History
+  and undo through the same functions, and ask Wikipedia at one pace together. What a media type's engine must
+  provide is written down there.
+- **Fixed:** when History was on and could not record a written video note, the write raised an error instead of
+  carrying on (it called a History function this app does not have). Now the note stays written and the failure is
+  logged. A test covers both media.
+- Music and video share one lookup cache file; `[notes.music] kinds` remembers which music notes to make (artist notes
+  by default).
+- Tests: mp3redactor's ~190 engine tests moved with the engine and pass on files of this app's own (MP3 mostly); its
+  tests of the review page and the command line follow with those (steps 9-10).
+
 ## 2026-11-06#02 -- Music notes: the modules moved from mp3redactor, every format read (plan steps 6-7)
 
 - **The music notes' modules moved from mp3redactor** into `core/music/`: the folder levels (artist, album, genre,

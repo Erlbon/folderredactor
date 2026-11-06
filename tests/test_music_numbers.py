@@ -1,13 +1,13 @@
 """'Seven' and '7' are the same title: one normaliser (core/notes_numbers.compare_key) for album titles, track titles and artist
-names, and the search fallbacks ask for both spellings. The normalised text is for comparing only. (The engine runs of
-mp3redactor's file come with the engine, plan step 8.)"""
+names, and the search fallbacks ask for both spellings. The normalised text is for comparing only."""
 
 import pytest
 
+from core.music.flow import Confidence, Fetchers, NotesEngine, build_proposals, scan
 from core.music.level import artist_key, names_agree
 from core.music.match import discography_hits, name_similarity, titles_match, track_overlap
 from core.music.numbers import compare_key, set_norwegian_numbers, title_variants
-from tests.music_helpers import FakeFetch
+from tests.music_helpers import FakeFetch, make_mp3
 
 MADNESS = "11111111-2222-4333-8444-555555555555"
 
@@ -104,10 +104,49 @@ def madness_fetch():
     ])
 
 
+def test_an_engine_run_madness_seven_finds_the_album_called_7_and_is_confident(tmp_path):
+    make_mp3(tmp_path / "Madness" / "Seven (1981)" / "01 a.mp3", "Cardiac Arrest", "Madness", "Seven", 1, "1981")
+    mb = madness_fetch()
+    engine = NotesEngine(Fetchers(mb=mb, wiki=FakeFetch([(r"wikidata\.org", {"entities": {}}), (r"search/title", {"pages": []}),
+                                                         (r"page/summary/", None)])))
+    target = next(t for t in scan([tmp_path], kinds=("artist",)).targets if t.folder.name == "Madness")
+    [proposal] = build_proposals([target], engine=engine)
+    assert proposal.confidence == Confidence.CONFIDENT, proposal.reasons
+    assert proposal.candidates[0].hits == ["Seven"]
+    assert any("found in its discography: Seven" in r for r in proposal.reasons)
+    assert "Seven" not in proposal.note_text.split("---")[1]  # the normalised text is never written: the front matter has none
+    assert "7" in proposal.note_text  # the album as MusicBrainz calls it
 
 
+def test_the_reverse_local_7_finds_a_discography_entry_called_seven(tmp_path):
+    make_mp3(tmp_path / "Madness" / "7 (1981)" / "01 a.mp3", "Cardiac Arrest", "Madness", "7", 1, "1981")
+    mb = madness_fetch()
+    mb.routes.insert(0, (r"ws/2/release-group\?artist=" + MADNESS, {"release-groups": [
+        {"id": "rg-7", "title": "Seven", "primary-type": "Album", "first-release-date": "1981"}]}))
+    engine = NotesEngine(Fetchers(mb=mb))
+    target = next(t for t in scan([tmp_path], kinds=("artist",)).targets if t.folder.name == "Madness")
+    [proposal] = build_proposals([target], engine=engine)
+    assert proposal.confidence == Confidence.CONFIDENT and proposal.candidates[0].hits == ["7"]
 
 
+def test_the_album_search_asks_for_both_spellings(tmp_path):
+    make_mp3(tmp_path / "Madness" / "Seven (1981)" / "01 a.mp3", "Cardiac Arrest", "Madness", "Seven", 1, "1981")
+    mb = FakeFetch([
+        (r"ws/2/artist\?query", {"artists": []}),
+        (r"ws/2/artist/", {"id": MADNESS, "name": "Madness", "sort-name": "Madness", "relations": []}),
+        (r"ws/2/release-group\?query=.*releasegroup%3A%22Seven%22.*releasegroup%3A%227%22",
+         {"release-groups": [{"id": "rg-7", "title": "7", "primary-type": "Album", "first-release-date": "1981",
+                              "artist-credit": [{"name": "Madness", "artist": {"id": MADNESS, "name": "Madness"}}]}]}),
+        (r"ws/2/release-group\?query", {"release-groups": []}),
+        (r"ws/2/release-group/", {"id": "rg-7", "title": "7", "primary-type": "Album", "first-release-date": "1981",
+                                  "releases": [], "relations": [], "genres": []}),
+        (r"ws/2/release", {"releases": []}),
+    ])
+    engine = NotesEngine(Fetchers(mb=mb))
+    target = next(t for t in scan([tmp_path / "Madness"], kinds=("album",)).targets)
+    [proposal] = build_proposals([target], engine=engine)
+    assert mb.count(r"releasegroup%3A%22Seven%22.*OR.*releasegroup%3A%227%22") >= 1
+    assert proposal.candidates and proposal.candidates[0].id == "rg-7"
 
 
 def test_a_title_with_no_number_is_searched_as_before(tmp_path):

@@ -8,7 +8,7 @@ layers over it. Its NotesEngine / Fetchers shape is the pattern the other media 
 
   scan(paths, include_subfolders, kinds)       core.video.local: the folders that should get a note
   build_proposals(targets, engine, ...)        one Proposal per target (network); never writes
-  write_proposal(proposal, dry_run=...)        redactor_common's write_note: never overwrites, status: draft
+  write_proposal(proposal, dry_run=...)        the shared engine core's (core/notes_engine.py): never overwrites
   NotesEngine.rebuild(proposal, candidate)     the proposal built again from the candidate a person picked
 
 Judgement: a proposal is 'confident' (the only kind a batch run writes) when TMDB has exactly ONE title with the folder's
@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
-from core import history
+from core import notes_engine
+from core.notes_engine import record_note_created, summarize, undo_note_entry, write_proposal  # noqa: F401 -- re-exported
 from core.video.local import (
     ALL_KINDS, KIND_MOVIE, KIND_SERIES, LocalMovie, LocalSeries, ScanResult, Skipped, Target, read_movie, read_series,
     scan, strip_country_tag,
@@ -36,19 +37,11 @@ from core.video.render import (
 )
 from core.video.tmdb import Tmdb, TitleDetails, TitleHit, make_fetch as make_tmdb_fetch
 from redactor_common.core.lookups.tmdb import TMDBError
-from core.version import APP_VERSION
 from redactor_common.core import note_text
 from redactor_common.core import wikipedia as wp
-from redactor_common.core.notes import NoteWriteResult
 from redactor_common.core.notes_cache import CachedFetch, RequestStats, ResponseCache
 from redactor_common.core.notes_model import KIND_NOTE, STATUS_SKIPPED, Candidate, Confidence, NotesSummary  # noqa: F401
 from redactor_common.core.notes_model import Proposal as _Proposal
-from redactor_common.core.notes_model import build_each, text_sha
-from redactor_common.core.notes_model import summarize as _summarize
-from redactor_common.core.notes_model import record_note_entry
-from redactor_common.core.notes_model import undo_note_entry as _undo_note_entry
-from redactor_common.core.trash import trash_with_fallback
-from redactor_common.core.notes_model import write_proposal as _write_proposal
 from redactor_common.core.notes_phases import PhaseSet, PhaseTimer
 
 __all__ = [
@@ -60,7 +53,6 @@ __all__ = [
 LEVEL_LOCAL_NAME = "local-name"  # rebuild(level=...): the explicit minimal note from the folder name (never automatic)
 MAX_CANDIDATES = 4
 YEAR_SLACK = 1  # a film's release year may differ by one between countries: plausible, never confident
-WIKI_USER_AGENT = f"folderredactor/{APP_VERSION} ( https://github.com/Erlbon/folderredactor )"
 
 TMDB, WIKIPEDIA, SCAN, WRITE = "tmdb", "wikipedia", "scan", "write"
 PHASES = PhaseSet({SCAN: "scan", TMDB: "TMDB", WIKIPEDIA: "Wikipedia", WRITE: "writing"},
@@ -97,11 +89,6 @@ class Proposal(_Proposal):
         if self.tmdb_id:
             out["tmdb_id"] = self.tmdb_id
         return out
-
-
-def summarize(proposals: list[Proposal], results: Optional[dict[str, NoteWriteResult]] = None,
-              cancelled: bool = False) -> NotesSummary:
-    return _summarize(proposals, results, cancelled)
 
 
 # ---- judging a match -------------------------------------------------------------------------------------------------
@@ -202,7 +189,7 @@ class NotesEngine:
         self.phases = PhaseTimer(PHASES)
         self._tmdb_fetch = CachedFetch(self.fetchers.tmdb or make_tmdb_fetch(), "tmdb", cache, self.stats, self.phases, TMDB,
                                        secret_params=("api_key",))
-        self._wiki = CachedFetch(self.fetchers.wiki or _default_wiki_fetch(), "wiki", cache, self.stats, self.phases, WIKIPEDIA)
+        self._wiki = CachedFetch(self.fetchers.wiki or notes_engine.wiki_fetch(), "wiki", cache, self.stats, self.phases, WIKIPEDIA)
         self.tmdb = Tmdb(self._tmdb_fetch, self.fetchers.key)
         self._details: dict[tuple[str, int], Optional[TitleDetails]] = {}
         self._season_dates: dict[tuple[int, int], dict[int, str]] = {}
@@ -428,50 +415,13 @@ class NotesEngine:
         return page
 
 
-def _default_wiki_fetch() -> Callable:
-    return _WIKI_FETCH
-
-
-_WIKI_FETCH = wp.make_fetch(WIKI_USER_AGENT)
-
-
-# ---- building and writing --------------------------------------------------------------------------------------------
+# ---- building (writing, History and undo are the shared core's: core/notes_engine.py) --------------------------------
 
 def build_proposals(
     targets: list[Target], fetchers: Optional[Fetchers] = None, progress: Optional[Progress] = None,
     cancel: Optional[Callable[[], bool]] = None, on_proposal: Optional[Callable[[Proposal], None]] = None,
     engine: Optional[NotesEngine] = None, cache: Optional[ResponseCache] = None,
 ) -> list[Proposal]:
-    """One Proposal per target, in order (the shared build_each). Network only; this function writes no file."""
+    """One Proposal per target, in order (the shared core's build_proposals). Network only; this function writes no file."""
     engine = engine or NotesEngine(fetchers, cache)  # a caller that keeps the engine can rebuild with its caches
-    return build_each(targets, engine.build_proposal, progress, cancel, on_proposal)  # type: ignore[return-value]
-
-
-def write_proposal(proposal: Proposal, dry_run: bool = False, allow_uncertain: bool = False) -> NoteWriteResult:
-    """Writes the draft of a CONFIDENT proposal (the shared write_proposal: an uncertain / none one is refused with status
-    'skipped' unless a person chose it, an existing note is never overwritten). With the opt-in history on, a written note
-    is recorded so it can be undone from Tools > History (undo_note_entry). A refresh sends the older note to the Recycle
-    Bin; on a drive without one (a network share) the refresh fails and the older note is kept, since this app has no
-    backup-folder setting yet (videoredactor's Library safety folder did not move with the notes)."""
-    return _write_proposal(proposal, dry_run, allow_uncertain, record=record_note_created,
-                           trash=trash_with_fallback(None))
-
-
-def record_note_created(path: str, text: str, replaced: bool = False, old_bytes=None) -> None:
-    """Journal entry for a written note when the opt-in history is on (otherwise nothing is touched, nothing stored). A
-    created note is 'note'; a refresh is 'note-update' and keeps the replaced text in notes_backup next to the settings, so
-    the undo can put it back. The entry keeps the SHA-256 of what was written so an undo can tell whether the person edited
-    it since."""
-    if not history.history_enabled():
-        return
-    try:
-        record_note_entry(history.get_journal(), history.notes_backup_base(), path, text, replaced, old_bytes)
-    except Exception as exc:  # noqa: BLE001 -- the note is already written; a journal failure never undoes it
-        history._report(exc)
-
-
-def undo_note_entry(entry, journal=None) -> str:
-    """Undoes a journal entry of a written note (the shared undo: Recycle Bin or the backup folder, only if it still holds
-    exactly what was written; a refresh gets its older text back). Returns '' or a plain-language problem."""
-    return _undo_note_entry(entry, journal if journal is not None else history.get_journal(),
-                            trash=trash_with_fallback(None), backup_base=history.notes_backup_base())
+    return notes_engine.build_proposals(targets, engine, progress, cancel, on_proposal)

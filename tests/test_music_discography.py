@@ -1,6 +1,5 @@
 """The shape of the notes after the Pluteus contract (docs/notes-format.md, "Discographies"): plain
-'- Title (Year)' lines grouped by release type, no library lists, no [[links]], no 'in this library'. (The engine runs of
-mp3redactor's file come with the engine, plan step 8.)"""
+'- Title (Year)' lines grouped by release type, no library lists, no [[links]], no 'in this library'."""
 
 import re
 from dataclasses import dataclass, field
@@ -8,7 +7,11 @@ from html import unescape
 
 import pytest
 
-from core.music.render import discography_heading, generator_text, group_discography, release_line, render_artist_note
+from core.music import render as notes_render
+from core.music.flow import build_proposals, scan
+from core.music.local import KIND_ALBUM, KIND_ARTIST, KIND_GENRE
+from core.music.render import discography_heading, group_discography, release_line, render_artist_note
+from tests.music_helpers import make_mp3, ultravox_fetchers, ultravox_library
 
 
 @dataclass
@@ -90,10 +93,22 @@ def test_the_artist_note_has_the_discography_and_nothing_baked_in():
     assert "In this library" not in text and "[[" not in text and "(all)" not in text
 
 
-def test_the_notes_say_this_app_made_them():
-    from core.version import APP_VERSION
+def test_a_real_artist_note_from_the_engine_has_no_links_to_navigate_and_no_library_state(tmp_path):
+    ultravox_library(tmp_path / "Music")  # a library root: the folder you start from gets no note of its own
+    found = scan([tmp_path / "Music"], kinds=[KIND_ARTIST, KIND_ALBUM, KIND_GENRE])
+    for proposal in build_proposals(found.targets, ultravox_fetchers()):
+        assert proposal.writable
+        assert "[[" not in proposal.note_text and "in this library" not in proposal.note_text.lower()
+        if proposal.kind == KIND_ARTIST:
+            assert "## Studio albums" in proposal.note_text and "Loose tracks" not in proposal.note_text
 
-    assert generator_text() == f"folderredactor {APP_VERSION}"
 
-
-
+def test_an_album_note_has_no_folder_comparison_unless_the_switch_is_turned_on(tmp_path, monkeypatch):
+    """The owner dropped the baked-in 'In this folder' present/missing copy (2026-10-15): off by default."""
+    ultravox_library(tmp_path)
+    found = scan([tmp_path], kinds=[KIND_ALBUM])
+    [vienna] = [t for t in found.targets if t.folder.name == "Vienna (1980)"]
+    off = build_proposals([vienna], ultravox_fetchers())[0].note_text
+    assert "## In this folder" not in off and "Present:" not in off and "## Tracklist" in off
+    monkeypatch.setattr(notes_render, "INCLUDE_FOLDER_COMPARISON", True)
+    assert "## In this folder" in build_proposals([vienna], ultravox_fetchers())[0].note_text

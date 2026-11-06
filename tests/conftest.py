@@ -86,6 +86,36 @@ def journal(app_files):
     history.set_journal(None)
 
 
+class FakeRecycleBin:
+    """Stands in for the Recycle Bin: moves the file into a folder of the test's own and remembers it, so nothing real is
+    ever trashed. `fail_with` makes the next moves raise (a drive without a bin, a locked file)."""
+
+    def __init__(self, folder):
+        self.folder = folder
+        self.trashed: list[str] = []
+        self.fail_with: Exception | None = None
+
+    def __call__(self, path: str, fallback_folder: str | None = None) -> None:
+        import shutil
+
+        if self.fail_with is not None:
+            raise self.fail_with
+        self.folder.mkdir(exist_ok=True)
+        shutil.move(path, str(self.folder / f"{len(self.trashed)}-{os.path.basename(path)}"))
+        self.trashed.append(path)
+
+
+@pytest.fixture(autouse=True)
+def recycle_bin(monkeypatch, tmp_path):
+    """Replacing an older note and undoing a written one trash through redactor_common's move_to_trash (looked up at call
+    time): every test gets the fake bin."""
+    from redactor_common.core import trash
+
+    bin_ = FakeRecycleBin(tmp_path / "_recycle_bin")
+    monkeypatch.setattr(trash, "move_to_trash", bin_)
+    return bin_
+
+
 @pytest.fixture(autouse=True)
 def fake_keyring(tmp_path, monkeypatch):
     from redactor_common.core import secret_store

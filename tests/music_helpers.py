@@ -2,8 +2,8 @@
 Vorbis, Opus), built from bytes in tmp_path and tagged through mutagen (no encoder, no binary fixture); a small library
 builder; and a fake `fetch(url) -> bytes` that answers from recorded replies (tests/fixtures/notes/recorded.json).
 
-The engine helpers of mp3redactor's tests/notes_helpers.py (ultravox_fetchers, cristina_fetchers, set_kinds) come with the
-engine, plan step 8."""
+The engine helpers (recorded MusicBrainz / Wikipedia / Discogs routes, ultravox_fetchers, cristina_fetchers) are
+mp3redactor's tests/notes_helpers.py ones, moved with the engine (plan step 8)."""
 
 from __future__ import annotations
 
@@ -44,6 +44,69 @@ class FakeFetch:
 
     def count(self, pattern: str) -> int:
         return sum(1 for u in self.urls if re.search(pattern, u))
+
+
+# ---- recorded replies and the engine's fetchers --------------------------------------------------------------------
+
+def musicbrainz_routes(search_artist="mb_artist_search_ultravox", rgs="mb_rgs_ultravox", detail="mb_artist_ultravox"):
+    r = RECORDED
+    routes = [
+        (r"ws/2/release-group\?query=[^ ]*limit=25", {"release-groups": []}),  # the search by album titles: nothing by default
+        (r"ws/2/artist\?query", r[search_artist] if search_artist else {"artists": []}),
+        (r"ws/2/artist/[^?]+\?", r[detail]),
+        # the second search hit ('Ultravox!', synthetic) is another artist: it does not hold Vienna, Quartet ... (a namesake that
+        # holds the same album is a case of its own: tests/test_music_review_batch3.py)
+        (r"ws/2/release-group\?artist=", lambda url: {"release-groups": []} if "synthetic-ultravox-2" in url else r[rgs]),
+        (r"ws/2/release-group\?query=.*primarytype", r["mb_rg_search_vienna"]),
+        (r"ws/2/release-group\?query=", r["mb_rg_search_vienna"]),
+        (r"ws/2/release-group/", r["mb_rg_vienna_album"]),
+        (r"ws/2/release\?release-group=", r["mb_releases_vienna"]),
+        (r"ws/2/release/", r["mb_release_vienna"]),
+    ]
+    return routes
+
+
+def wikipedia_routes(artist_page=True):
+    r = RECORDED
+    return [
+        (r"wikidata\.org", r["wikidata_ultravox"]),
+        (r"page/summary/Ultravox$", r["wiki_summary_ultravox"] if artist_page else None),
+        (r"page/summary/Vienna_\(Ultravox_album\)", r["wiki_summary_vienna_album"]),
+        (r"page/summary/Vienna_\(Ultravox_song\)", r["wiki_summary_vienna_song"]),
+        (r"search/title\?q=Vienna", r["wiki_search_vienna"]),
+        (r"search/title", {"pages": []}),
+        (r"page/summary/", None),
+    ]
+
+
+def ultravox_fetchers(**mb_kwargs):
+    from core.music.flow import Fetchers
+
+    return Fetchers(mb=FakeFetch(musicbrainz_routes(**mb_kwargs)), wiki=FakeFetch(wikipedia_routes()))
+
+
+def cristina_fetchers(with_discogs: bool = True):
+    from core.music.flow import Fetchers
+    from redactor_common.core.lookup_client import Throttle
+    from redactor_common.core.lookups.discogs import DiscogsClient
+
+    r = RECORDED
+    mb = FakeFetch([
+        (r"ws/2/artist\?query", r["mb_artist_search_cristina"]),
+        (r"ws/2/release-group\?artist=", r["mb_rgs_davena"]),
+        (r"ws/2/release-group\?query=", {"release-groups": []}),  # the search by album titles (no artist found by name)
+    ])
+    wiki = FakeFetch([(r"search/title", {"pages": []}), (r"page/summary/", None)])
+    client = None
+    if with_discogs:
+        discogs = FakeFetch([
+            (r"database/search", r["discogs_search_cristina"]),
+            (r"artists/55646/releases", r["discogs_releases_cristina"]),
+            (r"artists/999/releases", r["discogs_releases_cristina2"]),
+            (r"artists/55646", r["discogs_artist_cristina"]),
+        ])
+        client = DiscogsClient("test-token", fetch=discogs, throttle=Throttle(0))
+    return Fetchers(mb=mb, wiki=wiki, discogs=client)
 
 
 # ---- tiny real files -------------------------------------------------------------------------------------------------
@@ -175,4 +238,11 @@ def ultravox_library(root: Path, vienna_tracks: int = 3, with_quartet: bool = Tr
     if with_quartet:
         make_audio(artist / "Quartet (1982)" / "01 Reap the Wild Wind.mp3", "Reap the Wild Wind", "Ultravox", "Quartet", 1, "1982")
         make_audio(artist / "Quartet (1982)" / "02 Hymn.mp3", "Hymn", "Ultravox", "Quartet", 2, "1982")
+    return artist
+
+
+def cristina_library(root: Path) -> Path:
+    artist = root / "Cristina"
+    make_audio(artist / "Cristina (1980)" / "01 Disco Clone.mp3", "Disco Clone", "Cristina", "Cristina", 1, "1980")
+    make_audio(artist / "Sleep It Off (1984)" / "01 Blame It on the Night.mp3", "Blame It on the Night", "Cristina", "Sleep It Off", 1, "1984")
     return artist
