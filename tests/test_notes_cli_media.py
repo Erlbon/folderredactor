@@ -57,6 +57,16 @@ def test_a_real_mix_asks_for_media(tmp_path, capsys):
     assert code == 0 and document["media"] == "music"
 
 
+def test_a_music_folder_and_a_video_folder_in_one_run_are_refused_not_scanned_as_one_kind(tmp_path, capsys):
+    """Found by the step-11 check on the built exe: the first PATH decided and the video folder was scanned as music, silently."""
+    ultravox_library(tmp_path / "Music")
+    make_series(tmp_path / "Video")
+    with pytest.raises(CliError, match="the PATHs hold music and video"):
+        main(["notes", str(tmp_path / "Music"), str(tmp_path / "Video")])
+    code, document = run_json(capsys, str(tmp_path / "Music"), str(tmp_path / "Video"), "--media", "music")
+    assert code == 0 and document["media"] == "music"  # said explicitly: allowed
+
+
 def test_a_folder_without_media_files_goes_by_the_kind_words(tmp_path):
     (tmp_path / "empty").mkdir()
     with pytest.raises(CliError, match="no series or film folders"):

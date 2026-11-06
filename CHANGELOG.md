@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-06#06 -- The full check (plan step 11)
+
+- **Checked on the built exe**: the window starts and opens a library; the command line, run as ABOUT.md says for
+  scripts, drafted and wrote the artist and album notes of a real ffmpeg-encoded library (MP3 and FLAC albums, live
+  MusicBrainz and Wikipedia), never overwrote them on a second run, refused a music option for video and reported a
+  missing TMDB key with exit code 1.
+- **Fixed, found by that check**: `notes` with a music folder and a video folder in one call scanned the video folder as
+  music and said nothing; PATHs that hold music and video are now refused with a message (run them separately, or say
+  `--media`).
+- **`build_exe.bat` builds with this repo's own `.venv`** (made at the redactor_common pin by `venv_sync.py`) instead of
+  installing the requirements into the shared Python, which breaks the other repos' pins. README's commands say the same.
+- ABOUT.md: how to draft old notes again (the folder question's "Also review notes made by an older version"), and the
+  one-kind-per-run rule of `--media`.
+
 ## 2026-11-06#05 -- One `notes` command for music and video, the old apps' settings and keys (plan step 10)
 
 - **`notes` does music too**: one command for both, as mp3redactor's and videoredactor's were. `--media auto` (the

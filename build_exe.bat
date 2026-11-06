@@ -24,22 +24,22 @@ if errorlevel 1 (
 )
 echo.
 
-echo Installing dependencies ^(this can take a minute the first time^)...
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+echo Making this repo's own .venv at the redactor_common pin ^(a minute the first time^)...
+REM Never "pip install -r requirements.txt" into the shared Python: one repo's pin then breaks the others (2026-11-04).
+python ..\redactor-build-tools\devenv\venv_sync.py .
 if errorlevel 1 (
     echo.
-    echo ERROR: pip install failed. Common causes: no internet connection,
-    echo or a proxy/firewall blocking pip. See the error above for details.
+    echo ERROR: venv_sync failed. It lives in ..\redactor-build-tools\devenv\ next to this repo;
+    echo common causes: that folder is missing, no internet connection, or a proxy/firewall blocking pip.
     pause
     exit /b 1
 )
 echo.
 
 echo Building folderredactor.exe ...
-REM "python -m PyInstaller": the pyinstaller console script is often not on PATH.
+REM "python -m PyInstaller" with the .venv's python: the pyinstaller console script is often not on PATH.
 REM No UPX: the spec has upx=False (Defender flagged a UPX-packed sibling exe, a false positive).
-python -m PyInstaller folderredactor.spec --noconfirm
+.venv\Scripts\python -m PyInstaller folderredactor.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo ERROR: PyInstaller failed. See the error output above for details.

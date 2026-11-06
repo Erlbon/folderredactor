@@ -5,7 +5,8 @@ media server shows (`artist.md`, `album.md`, `series.md`, `about.md`), reviewed 
 Job 2 checks a library's folder tree against its conventions and renames only what is said yes to, with undo. What
 a user sees is in [ABOUT.md](ABOUT.md); this file is for working on the code.
 
-Status: plan steps 5-10. Notes > Create Notes and the `notes` command work for music (moved from mp3redactor:
+Status: plan steps 5-11 (step 11: the full check, 2026-11-06: tests, the built exe's window and command line on real
+encoded music and the video trees). Notes > Create Notes and the `notes` command work for music (moved from mp3redactor:
 `core/music/`, MP3, FLAC, M4A, Ogg and Opus through mutagen) and video (from videoredactor: `core/video/`); the window
 and the command line tell them apart by the library's files (`core/media_guess.py`). Both run through one engine core
 (`core/notes_engine.py`) and one review page, redactor_common's, whose template is mp3redactor's page; music switches
@@ -15,13 +16,14 @@ lookup cache and API keys (`core/old_apps.py`). The Clean Up menu is still greye
 ## Running and testing
 
 ```
-pip install -r requirements.txt
-python main.py                 # the window
-python main.py D:\Music        # the window with that library open
-python main.py --help          # the command line (one exe, see foldercli/)
-pytest                         # tests/ (Qt runs offscreen)
-python bump_version.py         # with every code commit, plus a CHANGELOG.md entry
-build_exe.bat                  # dist\folderredactor.exe (Windows)
+python ../redactor-build-tools/devenv/venv_sync.py .   # this repo's own .venv at the redactor_common pin (never pip
+                                                       # install -r requirements.txt into the shared Python)
+.venv\Scripts\python main.py              # the window
+.venv\Scripts\python main.py D:\Music     # the window with that library open
+.venv\Scripts\python main.py --help       # the command line (one exe, see foldercli/)
+.venv\Scripts\python -m pytest            # tests/ (Qt runs offscreen), as the pre-push hook does
+.venv\Scripts\python bump_version.py      # with every code commit, plus a CHANGELOG.md entry
+build_exe.bat                             # dist\folderredactor.exe (Windows), built with the .venv
 ```
 
 After cloning, switch the hooks on once: `git config core.hooksPath .githooks` (pre-commit: staged files parse and

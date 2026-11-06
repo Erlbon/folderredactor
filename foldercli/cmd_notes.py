@@ -218,9 +218,16 @@ def which_media(args: argparse.Namespace) -> str:
 
     from core.media_guess import count_media
 
-    first = Path(args.paths[0])
-    folder = first if first.is_dir() else first.parent
-    media = guess_media(folder)
+    def folder_of(path: str) -> Path:
+        p = Path(path)
+        return p if p.is_dir() else p.parent
+
+    guesses = {path: guess_media(folder_of(path)) for path in args.paths if folder_of(path).is_dir()}
+    if len({g for g in guesses.values() if g}) > 1:  # one run is one media type: a video folder would be scanned as music
+        kinds = ", ".join(f"{p} ({g})" for p, g in guesses.items() if g)
+        raise CliError(f"the PATHs hold music and video: {kinds}. Run them separately, or add --media")
+    folder = folder_of(args.paths[0])
+    media = guesses.get(args.paths[0], "") or next((g for g in guesses.values() if g), "")
     if media:
         return media
     if any(count_media(folder)) if folder.is_dir() else False:

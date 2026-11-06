@@ -34,6 +34,11 @@ list a line says why a row cannot be ticked yet. Only what you say yes to is wri
 and a folder that already has a note (`artist.md`, `author.md`, `series.md`, `album.md` or `about.md`, any letter case)
 is never touched.
 
+A note this program (or the ɯP3 or Ʌideo Redactor) wrote in an older shape can be drafted again: tick "Also review
+notes made by an older version" in the folder question. Such a row says Update, shows Before / after, is never ticked by
+itself, and the old note goes to the Recycle Bin when you write the new one. A note you edited is never offered.
+(Notes > Refresh Old Notes is still greyed; the tick box is the way for now.)
+
 ### Music
 
 An artist folder (album folders below it) gets an `artist.md`, an album folder (music files in it, or in CD1 / Disc 2
@@ -129,7 +134,7 @@ unmatched folders are listed with the reasons and the candidates and not written
 
 | Option | Meaning |
 | --- | --- |
-| `--media MEDIA` | `music`, `video` or `auto` (the default): tells them apart by the file names in the first PATH. A folder too mixed to tell asks for `--media`. |
+| `--media MEDIA` | `music`, `video` or `auto` (the default): tells them apart by the file names in each PATH. One run is one kind: PATHs that hold music and video are refused (run them separately), and a folder too mixed to tell asks for `--media`. |
 | `-R`, `--no-recurse` | Look only at the folders named, not the folders below them. |
 | `--kind KIND` | Which notes. Music: `artist` (the default: fast, no album lookups), `album`, `genre` (`about.md` of a genre or collection folder: about one Wikipedia lookup each, no tags read), `both` (artist and album), `all`, or several joined by commas (`artist,genre`). Video: `series`, `movie` or `both` (the default). |
 | `--link FOLDER=URL` | Music: the right page for a folder the search does not find, e.g. `--link "Leningrad=https://en.wikipedia.org/wiki/Leningrad_(band)"` (FOLDER is its name or path; URL a Wikipedia, MusicBrainz, Discogs or Wikidata link, or a MusicBrainz id). Repeatable. |
