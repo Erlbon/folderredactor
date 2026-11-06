@@ -5,8 +5,8 @@ media server shows (`artist.md`, `album.md`, `series.md`, `about.md`), reviewed 
 Job 2 checks a library's folder tree against its conventions and renames only what is said yes to, with undo. What
 a user sees is in [ABOUT.md](ABOUT.md); this file is for working on the code.
 
-Status: skeleton (plan step 4). The window, the menus (Notes and Clean Up greyed), API Keys, History, Preferences,
-Help and an empty command line are in place.
+Status: plan step 5. Folder notes for video libraries work (moved from videoredactor: Notes > Create Notes and the
+`notes` command); music notes and the Clean Up menu are still greyed.
 
 ## Running and testing
 
@@ -34,9 +34,12 @@ hold no control characters; pre-push: the tests pass).
 | `core/settings.py` | `folderredactor_settings.ini`, File > Recent |
 | `core/api_keys.py` | Discogs token and TMDB key in the credential store (app `folderredactor`) |
 | `core/history.py` | Tools > History: the shared journal, opt-in, with the note-undo handlers |
+| `core/notes_settings.py` | What Create Notes remembers for every media type (`[notes]`), the lookup cache's place |
+| `core/video/` | Video notes (from videoredactor): `local` (which folders), `tmdb`, `render`, `flow` (the engine), `settings` (`[notes.video]`) |
 | `gui/main_window.py` | The window and the family's menu skeleton |
+| `gui/video_notes.py` | Video's hook on redactor_common's scope question, run and review page |
 | `gui/api_keys_dialog.py`, `gui/preferences_dialog.py` | Tools > API Keys, Tools > Preferences |
-| `foldercli/` | The command line (`COMMANDS`, `main.py`); no commands yet |
+| `foldercli/` | The command line (`COMMANDS`, `main.py`, `cmd_notes.py`) |
 | `tests/` | pytest; every test keeps its settings, journal and keys in `tmp_path` |
 
 ## Rules this app keeps

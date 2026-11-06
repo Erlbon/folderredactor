@@ -63,6 +63,18 @@ def app_files(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def notes_cache(app_files, monkeypatch):
+    """The Create Notes lookup cache follows the settings file into tmp_path; the process-wide one starts empty in each
+    test and is closed after it (so no test sees another's answers, and the file is not held open)."""
+    from redactor_common.core import notes_cache as shared
+
+    monkeypatch.setattr(shared, "_default", None)
+    yield
+    if shared._default is not None:
+        shared._default.close()
+
+
+@pytest.fixture(autouse=True)
 def journal(app_files):
     """The Tools > History journal next to the test's settings file. History is opt-in: it stays off (nothing
     written) unless a test turns it on."""

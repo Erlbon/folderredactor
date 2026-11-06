@@ -1,10 +1,10 @@
 """
 gui/main_window.py
 
-The \u2132older Redactor's window. This is the skeleton (plan step 4): the family's menu skeleton with every menu of
-the plan in place, File > Open Library Folder / Recent, a folder dropped on the window, Tools > API Keys / History /
-Preferences, and Help. The two jobs' entries (Notes, Clean Up) are shown greyed until their steps land: disable,
-never hide.
+The \u2132older Redactor's window: the family's menu skeleton with every menu of the plan in place, File > Open
+Library Folder / Recent, a folder dropped on the window, Notes > Create Notes (video libraries so far: series.md and
+about.md, gui/video_notes.py), Tools > API Keys / Clear Lookup Cache / History / Preferences, and Help. The entries
+whose steps have not landed yet are shown greyed: disable, never hide.
 
 Menus (plan section 4): File (Open Library Folder, Recent, Exit), Edit (Undo), View (Command Palette), Notes (Create
 Notes, Refresh Old Notes, Switch View), Clean Up (Check Folder Tree, Open Check Report, Apply Decisions), Tools
@@ -23,8 +23,9 @@ from PyQt6.QtWidgets import (
     QFileDialog, QLabel, QMainWindow, QMenu, QMessageBox, QStatusBar, QVBoxLayout, QWidget,
 )
 
-from core import app_paths, history, settings
+from core import app_paths, history, notes_settings, settings
 from core.app_paths import asset_path
+from core.video import settings as video_settings
 from core.version import APP_NAME, APP_REPO_URL, APP_VERSION, RELEASE_LABEL
 from redactor_common.core import labels
 from redactor_common.core.version import REDACTOR_COMMON_REPO_URL, REDACTOR_COMMON_VERSION
@@ -67,6 +68,7 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(str(ICON_PATH)))
         self.setAcceptDrops(True)
         self.library_folder: str = ""
+        self.notes_fetchers = None  # Create Notes: a callable returning core.video.flow.Fetchers (None = the real services; tests inject)
 
         self._build_ui()
         self.updates = UpdateController(self, APP_NAME, APP_VERSION, APP_REPO_URL, app_paths.updates_json_path())
@@ -121,7 +123,10 @@ class MainWindow(QMainWindow):
             ],
             app_menus=[
                 AppMenu(MENU_NOTES, [
-                    later("create_notes", "&Create Notes…", "Draft the folder notes for the open library"),
+                    MenuAction("create_notes", "&Create Notes…", self._on_create_notes,
+                               tooltip="Draft the folder notes of a video library (series.md, about.md) and write the "
+                                       "ones you say yes to. Music comes with a later step.",
+                               keywords="notes series film movie about tmdb wikipedia"),
                     later("refresh_old_notes", "&Refresh Old Notes…", "Draft a new version of notes already written"),
                     Separator(),
                     later("switch_view", "&Switch View", "Between one note at a time and the list with ticks"),
@@ -137,7 +142,9 @@ class MainWindow(QMainWindow):
             tools=standard_tools_items(
                 preferences=self._on_open_preferences,
                 api_keys=self._on_open_api_keys,
-                app_settings=[later("clear_lookup_cache", "&Clear Lookup Cache", "Forget the saved lookup replies")],
+                app_settings=[MenuAction("clear_lookup_cache", "&Clear Lookup Cache", self._on_clear_lookup_cache,
+                                         tooltip="Forget the saved lookup replies, so the next run asks TMDB and "
+                                                 "Wikipedia again")],
                 history=self._on_open_history,
             ),
             help=standard_help_items(
@@ -224,6 +231,34 @@ class MainWindow(QMainWindow):
     def _not_yet(self) -> None:
         self.status_bar.showMessage(NOT_YET)
 
+    # --- Notes ----------------------------------------------------------------------------------------------------
+
+    def _on_create_notes(self) -> None:
+        """Notes > Create Notes...: ALWAYS asks which folder first, as a short list (the library folder you opened, one
+        level up, the last notes folder, Another folder...). The review page is redactor_common's, run by
+        gui/video_notes.py. Video libraries only so far: the media-type guess comes with music (plan step 10)."""
+        from gui.video_notes import scope_candidates, scope_question
+        from redactor_common.core.notes_scope import merge_choices
+
+        choices = merge_choices(scope_candidates([], [], self.library_folder, notes_settings.last_folder()))
+        folder, kinds, outdated = scope_question(
+            self, choices, notes_settings.include_subfolders(), notes_settings.set_include_subfolders,
+            notes_settings.last_folder() or self.library_folder, video_settings.kinds_text(video_settings.kinds()))
+        if not folder:
+            return
+        notes_settings.set_last_folder(folder)
+        video_settings.set_kinds(kinds)
+        self._run_create_notes([folder], notes_settings.include_subfolders(), video_settings.parse_kinds(kinds), outdated)
+
+    def _run_create_notes(self, paths: list, include_subfolders: bool, kinds: tuple, include_outdated: bool = False) -> None:
+        from core.video.flow import live_fetchers
+        from gui.video_notes import create_notes
+
+        create_notes(
+            self, paths, include_subfolders, self.notes_fetchers or live_fetchers,
+            size_text=notes_settings.dialog_size(), on_size=notes_settings.set_dialog_size, kinds=kinds,
+            cache=notes_settings.default_cache(), include_outdated=include_outdated)
+
     # --- Tools ----------------------------------------------------------------------------------------------------
 
     def _on_open_preferences(self) -> None:
@@ -235,6 +270,13 @@ class MainWindow(QMainWindow):
         from gui.api_keys_dialog import ApiKeysDialog
 
         ApiKeysDialog(self).exec()
+
+    def _on_clear_lookup_cache(self) -> None:
+        removed = notes_settings.clear_cache()
+        QMessageBox.information(
+            self, "Clear Lookup Cache",
+            "The lookup cache was already empty." if not removed
+            else f"{removed} saved answer{'' if removed == 1 else 's'} removed. The next run asks the services again.")
 
     def _on_open_history(self) -> None:
         """Tools > History: what this program wrote (notes, and later renames), each with its undo. Opt-in: with

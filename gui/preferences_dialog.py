@@ -2,8 +2,8 @@
 gui/preferences_dialog.py
 
 Tools > Preferences. For now one page's worth: History (record what this program writes, off by default, with a
-button that deletes what was recorded) and the daily update check. The notes and clean-up settings join with their
-steps.
+button that deletes what was recorded), Create Notes (keep the lookup answers on disk, a Wikipedia introduction) and
+the daily update check. The clean-up settings join with their steps.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QCheckBox, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout,
 )
 
-from core import app_paths, history
+from core import app_paths, history, notes_settings
 from redactor_common.core.selfupdate import KEY_CHECK_FOR_UPDATES, UpdateSettings
 from redactor_common.gui.owned_dialog import OwnedDialog
 
@@ -21,7 +21,7 @@ class PreferencesDialog(OwnedDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Preferences")
-        self.resize(520, 260)
+        self.resize(560, 360)
         layout = QVBoxLayout(self)
 
         box = QGroupBox("History")
@@ -40,6 +40,19 @@ class PreferencesDialog(OwnedDialog):
         row.addStretch()
         box_layout.addLayout(row)
         layout.addWidget(box)
+
+        notes_box = QGroupBox("Create Notes")
+        notes_layout = QVBoxLayout(notes_box)
+        self.notes_cache_check = QCheckBox("Keep the answers of earlier lookups, so a second run is quick")
+        self.notes_cache_check.setToolTip("Kept next to the program, never in a library. Tools > Clear Lookup Cache "
+                                          "forgets them.")
+        self.notes_cache_check.setChecked(notes_settings.cache_enabled())
+        notes_layout.addWidget(self.notes_cache_check)
+        self.notes_wikipedia_check = QCheckBox("Start a note with the Wikipedia introduction, when the article is "
+                                               "certainly the right one")
+        self.notes_wikipedia_check.setChecked(notes_settings.wikipedia_enabled())
+        notes_layout.addWidget(self.notes_wikipedia_check)
+        layout.addWidget(notes_box)
 
         self.update_settings = UpdateSettings(app_paths.updates_json_path())
         self.updates_check = QCheckBox("Check for a new version once a day")
@@ -72,6 +85,10 @@ class PreferencesDialog(OwnedDialog):
     def _on_ok(self) -> None:
         if self.history_check.isChecked() != history.history_enabled():
             history.set_history_enabled(self.history_check.isChecked())
+        if self.notes_cache_check.isChecked() != notes_settings.cache_enabled():
+            notes_settings.set_cache_enabled(self.notes_cache_check.isChecked())
+        if self.notes_wikipedia_check.isChecked() != notes_settings.wikipedia_enabled():
+            notes_settings.set_wikipedia_enabled(self.notes_wikipedia_check.isChecked())
         if self.updates_check.isChecked() != self.update_settings.enabled:
             self.update_settings.update(**{KEY_CHECK_FOR_UPDATES: self.updates_check.isChecked()})
         self.accept()

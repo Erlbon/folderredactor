@@ -33,10 +33,10 @@ def test_each_menu_holds_what_the_plan_says(window):
 
 def test_the_jobs_not_built_yet_are_greyed_not_hidden(window):
     registry = window.actions_by_key
-    for key in ("create_notes", "refresh_old_notes", "switch_view", "check_folder_tree", "open_check_report",
-                "apply_decisions", "clear_lookup_cache", "undo"):
+    for key in ("refresh_old_notes", "switch_view", "check_folder_tree", "open_check_report", "apply_decisions", "undo"):
         assert key in registry and not registry[key].isEnabled(), key
-    for key in ("open_library_folder", "api_keys", "history", "preferences", "about", "command_palette"):
+    for key in ("open_library_folder", "create_notes", "clear_lookup_cache", "api_keys", "history", "preferences", "about",
+                "command_palette"):
         assert registry[key].isEnabled(), key
 
 

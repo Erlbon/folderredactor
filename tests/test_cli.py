@@ -1,6 +1,6 @@
 """The command line in the one exe: which first arguments start it, the entry point, and ABOUT.md's "Command line"
 section kept in step with the parser (every command and option documented, the exit codes and the ways to script
-it). No commands exist yet; the checks are in place for when they come."""
+it). The commands themselves are tested in their own files (test_notes_cli.py)."""
 
 import argparse
 from pathlib import Path
@@ -13,7 +13,8 @@ ABOUT = Path(__file__).parent.parent / "ABOUT.md"
 def test_only_a_command_name_or_help_starts_the_command_line(tmp_path):
     from foldercli import COMMANDS, cli_requested
 
-    assert COMMANDS == ()
+    assert COMMANDS == ("notes",)
+    assert cli_requested(["folderredactor.exe", "notes", str(tmp_path)])
     assert cli_requested(["folderredactor.exe", "--version"]) and cli_requested(["folderredactor.exe", "--help"])
     assert not cli_requested(["folderredactor.exe"]) and not cli_requested(["folderredactor.exe", str(tmp_path)])
 
