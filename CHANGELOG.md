@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-11-06#02 -- Music notes: the modules moved from mp3redactor, every format read (plan steps 6-7)
+
+- **The music notes' modules moved from mp3redactor** into `core/music/`: the folder levels (artist, album, genre,
+  collections, alphabetical groupings), the title normaliser ('Seven' = '7'), match scoring, the artist test, 'Look up by
+  link', the MusicBrainz and Discogs reads, the note text and 'What is in this folder'. Unchanged apart from their names.
+  No menu or command uses them yet: the engine and the review page follow (plan steps 8-9).
+- **Every common music format is read**, not only MP3: FLAC, M4A (AAC and ALAC), Ogg Vorbis and Opus, through mutagen
+  (`core/music/tags.py`), with the cover inside the file in each format. An MP3 whose audio is damaged still gives its tags.
+  Checked on files ffmpeg encoded and tagged, as well as on the tests' own.
+- **Notes written by mp3redactor count as current**: same note format, so they will not be offered for a refresh.
+- The review list's troubleshooting log (`core/notes_debug.py`) moved too: off by default, `FOLDERREDACTOR_NOTES_DEBUG=1`
+  or `[notes] debug_log`, written next to the settings; its Preferences tick box comes with the review page.
+- Tests: tiny real MP3, FLAC, M4A, Ogg and Opus files are built from bytes in `tmp_path` and tagged with mutagen (no
+  encoder, no binary fixtures); mp3redactor's engine-free music tests moved with the code.
+
 ## 2026-11-06#01 -- Folder notes for video libraries (moved from videoredactor)
 
 - **Notes > Create Notes works for video libraries**: `series.md` in a series folder, `about.md` in a film folder,

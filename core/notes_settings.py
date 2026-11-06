@@ -10,6 +10,7 @@ media type adds is its own module (core/video/settings.py: [notes.video]).
   [notes] cache         '1' (default) / '0': keep answers of earlier lookups on disk
   [notes] dialog_size    'WxH' of the review page
   [notes] wikipedia      '1' (default) / '0': a Wikipedia introduction in the notes
+  [notes] debug_log      '0' (default) / '1': the troubleshooting log of the review list (core/notes_debug.py)
 """
 
 from __future__ import annotations
@@ -67,6 +68,14 @@ def wikipedia_enabled() -> bool:
 
 def set_wikipedia_enabled(enabled: bool) -> None:
     settings.set_setting(SECTION, "wikipedia", "1" if enabled else "0")
+
+
+def debug_log_enabled() -> bool:
+    return _flag("debug_log", default=False)
+
+
+def set_debug_log_enabled(enabled: bool) -> None:
+    settings.set_setting(SECTION, "debug_log", "1" if enabled else "0")
 
 
 def dialog_size() -> str:
