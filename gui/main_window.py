@@ -34,6 +34,7 @@ from redactor_common.gui.about_dialog import AboutDialog, ChangelogDialog, Credi
 from redactor_common.gui.command_palette import add_command_palette
 from redactor_common.gui.history_dialog import HistoryDialog
 from redactor_common.gui.menu_builder import MenuAction, Separator, Submenu
+from redactor_common.gui.progress import run_busy
 from redactor_common.gui.standard_menus import (
     KEY_COMMAND_PALETTE, KEY_EXIT, AppMenu, StandardMenuSpec, build_standard_menu_bar, get_action_registry,
     standard_help_items, standard_tools_items,
@@ -68,6 +69,7 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(str(ICON_PATH)))
         self.setAcceptDrops(True)
         self.library_folder: str = ""
+        self.library_media: str = ""  # 'music' / 'video' / '' (cannot tell), guessed when the library is opened
         self.notes_fetchers = None  # Create Notes: a callable returning core.video.flow.Fetchers (None = the real services; tests inject)
 
         self._build_ui()
@@ -110,6 +112,11 @@ class MainWindow(QMainWindow):
                 MenuAction("open_library_folder", "&Open Library Folder…", self._on_open_library_folder,
                            shortcut=keys.OPEN_FOLDER, keywords="open folder library"),
                 self.recent_menu_spec,
+                Separator(),
+                MenuAction("import_old_apps", "&Import from mp3redactor or videoredactor…", self._on_import_old_apps,
+                           tooltip="Take over the notes settings, the saved lookup answers and the API keys of the "
+                                   "ɯP3 or Ʌideo Redactor (point at the folder its program is in)",
+                           keywords="import mp3redactor videoredactor settings cache keys"),
                 Separator(),
                 MenuAction(KEY_EXIT, labels.EXIT, self.close),
             ],
@@ -199,8 +206,13 @@ class MainWindow(QMainWindow):
         if not os.path.isdir(folder):
             self.status_bar.showMessage(f"Not a folder: {folder}")
             return False
+        from core.media_guess import guess_media
+
         self.library_folder = folder
-        self.folder_label.setText(f"Library folder: {folder}")
+        # a bounded look at the file names (at most a few thousand); on a share it can take a moment: never silently
+        self.library_media = run_busy(self, "Looking at the library's files…", guess_media, folder, title=APP_NAME)
+        kind = {"music": "a music library", "video": "a video library"}.get(self.library_media, "music or video: cannot tell")
+        self.folder_label.setText(f"Library folder: {folder}  ({kind})")
         settings.add_recent_folder(folder)
         self.status_bar.showMessage(f"Opened {folder}")
         return True
@@ -238,9 +250,12 @@ class MainWindow(QMainWindow):
         its file names; too close to call, the kind used last time; never used before, asked. '' = the person cancelled."""
         from core.media_guess import guess_media
 
-        start = self.library_folder or notes_settings.last_folder()
-        media = (guess_media(start) if start else "") or notes_settings.last_media()
-        return media or self._ask_media()
+        if self.library_folder:
+            media = self.library_media  # guessed when the library was opened
+        else:
+            start = notes_settings.last_folder()
+            media = guess_media(start) if start else ""
+        return media or notes_settings.last_media() or self._ask_media()
 
     def _ask_media(self) -> str:
         box = QMessageBox(QMessageBox.Icon.Question, "Create Notes",
@@ -290,6 +305,50 @@ class MainWindow(QMainWindow):
             self, paths, include_subfolders, self.notes_fetchers or live_fetchers,
             size_text=notes_settings.dialog_size(), on_size=notes_settings.set_dialog_size, kinds=kinds,
             cache=notes_settings.default_cache(), include_outdated=include_outdated)
+
+    # --- the old apps ---------------------------------------------------------------------------------------------
+
+    def _on_import_old_apps(self) -> None:
+        """File > Import from mp3redactor or videoredactor...: the folder the old program is in (its settings file and
+        lookup cache sit next to it); then the API keys it has that this program does not."""
+        from core import old_apps
+
+        folder = QFileDialog.getExistingDirectory(
+            self, "Import: the folder mp3redactor.exe or videoredactor.exe is in", self.library_folder)
+        if folder:
+            if not old_apps.detect(folder):
+                QMessageBox.information(self, "Import", f"No mp3redactor or videoredactor settings or lookup cache in "
+                                                        f"{folder}. Pick the folder its program is in.")
+            else:
+                lines = run_busy(self, "Importing…", old_apps.import_folder, folder, title="Import")
+                QMessageBox.information(self, "Import", "\n".join(lines))
+        self.offer_old_keys(asked_by_person=True)
+
+    def offer_old_keys(self, asked_by_person: bool = False) -> None:
+        """The Discogs token / TMDB key of the old apps, by their names in the credential store: offered, never copied
+        silently. At start-up only once ([keys] import_offered); from the File menu every time."""
+        from core import old_apps
+
+        if not asked_by_person and settings.get_setting("keys", "import_offered", "") == "1":
+            return
+        found = old_apps.found_keys()
+        if not asked_by_person:
+            settings.set_setting("keys", "import_offered", "1")
+        if not found:
+            if asked_by_person:
+                self.status_bar.showMessage("No API keys of mp3redactor or videoredactor to copy (or this program has them).")
+            return
+        names = "\n".join(f"  {k.label} from {k.app}" for k in found)
+        answer = QMessageBox.question(
+            self, "API keys", f"Copy these keys into this program (Tools > API Keys)?\n\n{names}\n\nThey stay in the "
+                              "other programs too.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        problems = old_apps.copy_keys(found)
+        if problems:
+            QMessageBox.warning(self, "API keys", "Not copied:\n" + "\n".join(problems))
+        else:
+            self.status_bar.showMessage(f"{len(found)} key(s) copied.")
 
     # --- Tools ----------------------------------------------------------------------------------------------------
 
@@ -349,6 +408,15 @@ class MainWindow(QMainWindow):
 
     def _on_show_credits(self) -> None:
         CreditsDialog(str(CREDITS_PATH), parent=self).exec()
+
+
+def start_window(initial_folder: Optional[str] = None) -> MainWindow:
+    """The window the program starts with: once it is up, the old apps' API keys are offered (once, never silently)."""
+    from PyQt6.QtCore import QTimer
+
+    window = MainWindow(initial_folder)
+    QTimer.singleShot(0, window.offer_old_keys)
+    return window
 
 
 def folder_from_argv(argv: list[str]) -> Optional[str]:

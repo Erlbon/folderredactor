@@ -14,8 +14,8 @@ reports and history live next to the program.
 
 Part of the Redactor family (the ƎPUB, ɯP3, Ʌideo and ƆBZ Redactors). This is an early build: folder notes work
 for music libraries (artists, albums, genres, moved here from the ɯP3 Redactor) and video libraries (series and films,
-from the Ʌideo Redactor) in the window; on the command line `notes` does video only so far. The Clean Up menu is shown
-greyed until it is built.
+from the Ʌideo Redactor), in the window and with the `notes` command. The Clean Up menu is shown greyed until it is
+built.
 
 ## Opening a library
 
@@ -71,9 +71,19 @@ The notes the Ʌideo Redactor already wrote count as this program's own: they ar
 ### Preferences
 
 Tools > Preferences > Create Notes switches the lookup cache (answers kept next to the program, so a second run is
-quick) and the Wikipedia introduction; Tools > Clear Lookup Cache forgets the saved answers. "Log the review list for
+quick) and the Wikipedia introduction; Tools > Clear Lookup Cache forgets the saved answers. For music: ask Discogs for
+every artist (slower; off: only when MusicBrainz has no verified match), leave the singles out of a discography, and
+count the Norwegian number words that are everyday English words (en, to, tre, fire...) as numbers. "Log the review list for
 troubleshooting" is off by default: it writes only counts, scroll positions and folder names next to the program, and
 Delete Log removes it.
+
+## Coming from the ɯP3 or Ʌideo Redactor
+
+At its first start the program offers to copy the Discogs token of the ɯP3 Redactor and the TMDB key of the Ʌideo
+Redactor, if they are saved there and not here (they stay in the old programs too). File > Import from mp3redactor or
+videoredactor… does that again, and also takes over their Create Notes settings (what to create, the Discogs and singles
+switches, the lookup cache and Wikipedia switches) and their saved lookup answers: point it at the folder the old
+program is in. It only fills in what is not set here; your choices in this program are never overwritten.
 
 ## API keys
 
@@ -94,7 +104,7 @@ argument is a command name, it runs that command and the window never opens; wit
 open, the window starts as usual. `folderredactor --help` lists the commands and `folderredactor COMMAND --help`
 lists the options of one.
 
-The commands so far: `notes` (draft the folder notes of a video library; a report unless `--write`). The clean-up's
+The commands so far: `notes` (draft the folder notes of a music or video library; a report unless `--write`). The clean-up's
 `check`, `apply` and `undo` come with that job. Every command takes `--json` (one JSON document on stdout), `--quiet`
 and `--output FILE`, and the ones that change something are a report or dry run unless `--write`.
 
@@ -105,26 +115,35 @@ and `--output FILE`, and the ones that change something are a report or dry run 
 
 ### notes
 
-`folderredactor notes PATH... [-R] [--kind KIND] [--update] [--update-legacy] [--no-cache] [--no-wikipedia] [--write] [--include-uncertain] [-n] [--show-drafts]`
+`folderredactor notes PATH... [--media MEDIA] [-R] [--kind KIND] [--update] [--update-legacy] [--link FOLDER=URL] [--genres FOLDER=GENRE,GENRE] [--no-cache] [--no-wikipedia] [--write] [--include-uncertain] [-n] [--discogs WHEN] [--no-discogs] [--no-singles] [--norwegian-numbers] [--show-drafts]`
 
-Drafts the Markdown notes the Pluteus media server shows beside a folder, the same as Notes > Create Notes: `series.md`
-in a series folder and `about.md` in a film folder, from TMDB (your own key under Tools > API Keys, or `TMDB_API_KEY`)
-and, when Wikidata links the title's IMDb id to an article, a Wikipedia introduction. Video libraries for now; music
-joins this same command later, with the same options. A report unless `--write` is given: every title folder is listed
-with how sure the match is and what would be written. `--write` writes the drafts (`status: draft`) of the confident
-matches only. A folder that already has a note (any of Pluteus's names, any letter case) is never touched, and a note
-is never overwritten. Uncertain and unmatched folders are listed with the reasons and the candidates and not written.
+Drafts the Markdown notes the Pluteus media server shows beside a folder, the same as Notes > Create Notes. **Music:**
+`artist.md` in an artist folder, `album.md` in an album folder, `about.md` in a genre or collection folder, from
+MusicBrainz, Wikipedia and (with your Discogs token under Tools > API Keys, or `DISCOGS_TOKEN`) Discogs, verified by the
+albums really in the folder. **Video:** `series.md` in a series folder and `about.md` in a film folder, from TMDB (your
+own key under Tools > API Keys, or `TMDB_API_KEY`) and, when Wikidata links the title's IMDb id to an article, a
+Wikipedia introduction. A report unless `--write` is given: every folder is listed with how sure the match is and what
+would be written. `--write` writes the drafts (`status: draft`) of the confident matches only. A folder that already has
+a note (any of Pluteus's names, any letter case) is never touched, and a note is never overwritten. Uncertain and
+unmatched folders are listed with the reasons and the candidates and not written.
 
 | Option | Meaning |
 | --- | --- |
+| `--media MEDIA` | `music`, `video` or `auto` (the default): tells them apart by the file names in the first PATH. A folder too mixed to tell asks for `--media`. |
 | `-R`, `--no-recurse` | Look only at the folders named, not the folders below them. |
-| `--kind KIND` | Which notes: `series` (`series.md`), `movie` (`about.md` of a film folder) or `both` (the default); several can be joined by commas. |
+| `--kind KIND` | Which notes. Music: `artist` (the default: fast, no album lookups), `album`, `genre` (`about.md` of a genre or collection folder: about one Wikipedia lookup each, no tags read), `both` (artist and album), `all`, or several joined by commas (`artist,genre`). Video: `series`, `movie` or `both` (the default). |
+| `--link FOLDER=URL` | Music: the right page for a folder the search does not find, e.g. `--link "Leningrad=https://en.wikipedia.org/wiki/Leningrad_(band)"` (FOLDER is its name or path; URL a Wikipedia, MusicBrainz, Discogs or Wikidata link, or a MusicBrainz id). Repeatable. |
+| `--genres FOLDER=GENRE,GENRE` | Music: the genres a genre or collection folder covers when its name does not say so, e.g. `--genres "1.61 - Ska=Ska,Ska punk"`. Each is checked on Wikipedia. Repeatable. |
+| `--discogs WHEN` | Music, with a Discogs token: `fallback` (only when MusicBrainz has no verified match or Wikipedia no introduction), `always` (every artist, slower) or `never`. The default follows Tools > Preferences. |
+| `--no-discogs` | Music: do not use Discogs even with a token (= `--discogs never`). |
+| `--no-singles` | Music: leave the singles out of an artist's discography (faster). Also on when Preferences says so. |
+| `--norwegian-numbers` | Music: also read the Norwegian number words that are everyday English words (en, to, tre, fire, fem, ni, ti) as numbers when titles are compared. Also on when Preferences says so. |
 | `--update` | Also list the notes made by an older version of this program (stamped, an older format, nobody edited them) and, with `--write`, replace only those; the old note goes to the Recycle Bin. A note a person edited, or one this program did not write, is never touched. On a network share without a Recycle Bin the old note is kept and the replace is reported as failed. |
 | `--update-legacy` | With `--update --write`: also replace the notes of the first versions (no stamp, so it cannot be known whether they were edited; still the Recycle Bin, still never an edited or foreign note). |
 | `--no-cache` | Do not use the disk cache of earlier answers: everything is asked again. |
 | `--no-wikipedia` | No Wikipedia introduction in the notes (fewer requests). |
 | `--write` | Write the drafts of the confident matches (the default is a report only). |
-| `--include-uncertain` | With `--write`: also write an uncertain match whose top candidate fits the name and year on its own and has no equal; marked "from an uncertain match" in the report. |
+| `--include-uncertain` | With `--write`: also write an uncertain match from the engine's best candidate (music: one that holds one of your albums; video: one that fits the name and year on its own and has no equal), never for nothing found or an unclear level; marked "from an uncertain match" in the report. |
 | `-n`, `--dry-run` | Never write, even with `--write`: show what would be written. |
 | `--show-drafts` | Print each draft note (text) or include it (`--json`). |
 

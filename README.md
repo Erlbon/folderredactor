@@ -5,11 +5,12 @@ media server shows (`artist.md`, `album.md`, `series.md`, `about.md`), reviewed 
 Job 2 checks a library's folder tree against its conventions and renames only what is said yes to, with undo. What
 a user sees is in [ABOUT.md](ABOUT.md); this file is for working on the code.
 
-Status: plan steps 5-9. Notes > Create Notes works for music (moved from mp3redactor: `core/music/`, MP3, FLAC, M4A,
-Ogg and Opus through mutagen) and video (from videoredactor: `core/video/`); the window guesses which from the library's
-files (`core/media_guess.py`). Both run through one engine core (`core/notes_engine.py`) and one review page,
-redactor_common's, whose template is mp3redactor's page; music switches its extras on through `ReviewHooks`
-(`gui/music_notes.py`). The `notes` command does video only until step 10; the Clean Up menu is still greyed.
+Status: plan steps 5-10. Notes > Create Notes and the `notes` command work for music (moved from mp3redactor:
+`core/music/`, MP3, FLAC, M4A, Ogg and Opus through mutagen) and video (from videoredactor: `core/video/`); the window
+and the command line tell them apart by the library's files (`core/media_guess.py`). Both run through one engine core
+(`core/notes_engine.py`) and one review page, redactor_common's, whose template is mp3redactor's page; music switches
+its extras on through `ReviewHooks` (`gui/music_notes.py`). File > Import takes over the old apps' notes settings,
+lookup cache and API keys (`core/old_apps.py`). The Clean Up menu is still greyed.
 
 ## Running and testing
 
@@ -44,11 +45,12 @@ hold no control characters; pre-push: the tests pass).
 | `core/notes_debug.py` | The opt-in troubleshooting log of the review list (off by default) |
 | `gui/main_window.py` | The window and the family's menu skeleton |
 | `core/media_guess.py` | Music or video library, from a bounded look at the file names |
+| `core/old_apps.py` | File > Import from mp3redactor or videoredactor: their notes settings and lookup cache (from the folder pointed at), their API keys (by name in the credential store, offered once at start-up) |
 | `gui/music_notes.py` | Music's hook on redactor_common's scope question, run and review page (its `ReviewHooks`: levels, link, genres, Local files, best guesses, album follow-up, log) |
 | `gui/music_evidence_view.py` | The review page's Local files tab: cover thumbnail, tracks, tags (read in the background, cached) |
 | `gui/video_notes.py` | Video's hook on redactor_common's scope question, run and review page |
 | `gui/api_keys_dialog.py`, `gui/preferences_dialog.py` | Tools > API Keys, Tools > Preferences |
-| `foldercli/` | The command line (`COMMANDS`, `main.py`, `cmd_notes.py`) |
+| `foldercli/` | The command line (`COMMANDS`, `main.py`, `cmd_notes.py`: one `notes` for music and video, `--media auto`) |
 | `tests/` | pytest; every test keeps its settings, journal and keys in `tmp_path`. `tests/music_helpers.py` builds tiny real MP3 / FLAC / M4A / Ogg / Opus files from bytes and tags them with mutagen (no encoder, no binary fixtures); `tests/notes_gui_helpers.py` drives Notes > Create Notes through the real window (the music and video window-flow tests) |
 
 ## Rules this app keeps

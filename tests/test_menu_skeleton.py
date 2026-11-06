@@ -22,7 +22,7 @@ def test_headings_are_the_skeleton_with_notes_and_clean_up(window):
 
 def test_each_menu_holds_what_the_plan_says(window):
     menus = _menus(window)
-    assert _labels(menus["File"]) == ["Open Library Folder…", "Recent", "Exit"]
+    assert _labels(menus["File"]) == ["Open Library Folder…", "Recent", "Import from mp3redactor or videoredactor…", "Exit"]
     assert _labels(menus["Edit"]) == ["Undo"]
     assert _labels(menus["View"]) == ["Command Palette…"]
     assert _labels(menus["Notes"]) == ["Create Notes…", "Refresh Old Notes…", "Switch View"]

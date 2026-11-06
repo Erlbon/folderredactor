@@ -161,14 +161,19 @@ def left_alone_sentence(found) -> str:
 def create_notes(
     parent: QWidget, paths: list, include_subfolders: bool, make_fetchers: Callable[[], Fetchers] = live_fetchers,
     size_text: str = "", on_size: Optional[Callable[[str], None]] = None, open_path: Callable[[str], None] = open_in_system,
-    kinds: tuple = (KIND_ARTIST,), cache=None, include_outdated: bool = False, discogs_mode: str = "fallback",
-    singles: bool = True,
+    kinds: tuple = (KIND_ARTIST,), cache=None, include_outdated: bool = False, discogs_mode: Optional[str] = None,
+    singles: Optional[bool] = None,
 ) -> Optional[NotesReviewDialog]:
     """Scan `paths`, look every folder up under a cancellable progress dialog, then open the review page. 'Create the album
     notes for these artists too' runs once more for those artists' albums. Returns the (closed) last dialog, or None when
-    there was nothing to review."""
+    there was nothing to review. The engine's options default to Preferences (core/music/settings.py)."""
     from core import history
+    from core.music import settings as music_settings
 
+    options = music_settings.engine_options()
+    discogs_mode = discogs_mode or options["discogs_mode"]
+    singles = options["singles"] if singles is None else singles
+    music_settings.apply_number_words()
     kinds = parse_kinds(kinds)
     fetchers = make_fetchers()
     fetchers.wikipedia = fetchers.wikipedia and notes_settings.wikipedia_enabled()

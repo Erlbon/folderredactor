@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-11-06#05 -- One `notes` command for music and video, the old apps' settings and keys (plan step 10)
+
+- **`notes` does music too**: one command for both, as mp3redactor's and videoredactor's were. `--media auto` (the
+  default) tells them apart by the file names; a real mix asks for `--media music` or `--media video`, and a folder
+  without any media file goes by the `--kind` words. Music has mp3redactor's options (`--link`, `--genres`, `--discogs`,
+  `--no-discogs`, `--no-singles`, `--norwegian-numbers`); they are refused for video. Checked live on real encoded files:
+  the same result as mp3redactor's own command.
+- **Music's engine options are settings** (`[notes.music]`) with switches in Tools > Preferences: ask Discogs for every
+  artist, leave the singles out, Norwegian number words. The window and the command line both follow them (a flag wins
+  for one run).
+- **Opening a library says what kind it is** ("a music library", "a video library"), and Notes > Create Notes uses that.
+- **File > Import from mp3redactor or videoredactor…**: their Create Notes settings and saved lookup answers, from the
+  folder the old program is in, filling only what is not set here; and their API keys. At the first start the keys are
+  offered once (never copied without a yes).
+- Tests: mp3redactor's command-line notes tests moved (its own test file and the command-line tests of nine others),
+  plus tests of the media choice and the import. A test that renamed a folder of freshly written files (Windows can hold
+  such a folder for a moment) now makes its folders under their final names.
+
 ## 2026-11-06#04 -- Music notes in the window, on mp3redactor's review page (plan step 9)
 
 - **Notes > Create Notes works for music libraries**: artist, album and genre / collection notes, with mp3redactor's

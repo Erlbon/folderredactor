@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core import app_paths, history, notes_debug, notes_settings
+from core.music import settings as music_settings
 from redactor_common.core.selfupdate import KEY_CHECK_FOR_UPDATES, UpdateSettings
 from redactor_common.gui.owned_dialog import OwnedDialog
 
@@ -21,7 +22,7 @@ class PreferencesDialog(OwnedDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Preferences")
-        self.resize(560, 360)
+        self.resize(600, 480)
         layout = QVBoxLayout(self)
 
         box = QGroupBox("History")
@@ -65,6 +66,23 @@ class PreferencesDialog(OwnedDialog):
         debug_row.addStretch()
         notes_layout.addLayout(debug_row)
         layout.addWidget(notes_box)
+
+        music_box = QGroupBox("Create Notes: music")
+        music_layout = QVBoxLayout(music_box)
+        self.discogs_always_check = QCheckBox("Ask Discogs for every artist (slower; off: only when MusicBrainz has no "
+                                              "verified match)")
+        self.discogs_always_check.setToolTip("Needs a Discogs token (Tools > API Keys).")
+        self.discogs_always_check.setChecked(music_settings.discogs_always())
+        music_layout.addWidget(self.discogs_always_check)
+        self.skip_singles_check = QCheckBox("Leave the singles out of an artist's discography (faster)")
+        self.skip_singles_check.setChecked(music_settings.skip_singles())
+        music_layout.addWidget(self.skip_singles_check)
+        self.norwegian_check = QCheckBox("Count the Norwegian number words en, to, tre, fire, fem, ni, ti as numbers "
+                                         "when titles are compared")
+        self.norwegian_check.setToolTip("Off by default: these are everyday English words too ('Fire', 'To', 'Ten').")
+        self.norwegian_check.setChecked(music_settings.norwegian_numbers())
+        music_layout.addWidget(self.norwegian_check)
+        layout.addWidget(music_box)
 
         self.update_settings = UpdateSettings(app_paths.updates_json_path())
         self.updates_check = QCheckBox("Check for a new version once a day")
@@ -112,6 +130,11 @@ class PreferencesDialog(OwnedDialog):
         if self.notes_debug_check.isChecked() != notes_settings.debug_log_enabled():
             notes_settings.set_debug_log_enabled(self.notes_debug_check.isChecked())
             notes_debug.set_enabled(self.notes_debug_check.isChecked())  # the running app follows at once
+        for box, read, write in ((self.discogs_always_check, music_settings.discogs_always, music_settings.set_discogs_always),
+                                 (self.skip_singles_check, music_settings.skip_singles, music_settings.set_skip_singles),
+                                 (self.norwegian_check, music_settings.norwegian_numbers, music_settings.set_norwegian_numbers)):
+            if box.isChecked() != read():
+                write(box.isChecked())
         if self.updates_check.isChecked() != self.update_settings.enabled:
             self.update_settings.update(**{KEY_CHECK_FOR_UPDATES: self.updates_check.isChecked()})
         self.accept()

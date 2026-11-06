@@ -79,11 +79,14 @@ def test_a_failure_in_the_first_service_still_lets_the_second_finish_and_is_rais
 
 # -- the tags: a sample, then all if unsure; a small pool ------------------------------------------------------------
 
-def many_albums(root, albums=6, files=8, artist="Ultravox"):
+def many_albums(root, albums=6, files=8, artist="Ultravox", names=None):
+    """`albums` album folders of `files` tagged files; `names` gives the first folders their own names (made with them,
+    never renamed afterwards: Windows can hold a folder of freshly written files for a moment, and a rename then fails)."""
     base = root / artist
     for a in range(albums):
+        folder = (names or {}).get(a, f"Album {a} ({1980 + a})")
         for f in range(files):
-            make_mp3(base / f"Album {a} ({1980 + a})" / f"{f + 1:02d} t.mp3", f"t{f}", artist, f"Album {a}", f + 1, str(1980 + a))
+            make_mp3(base / folder / f"{f + 1:02d} t.mp3", f"t{f}", artist, f"Album {a}", f + 1, str(1980 + a))
     return base
 
 
@@ -110,9 +113,8 @@ def test_the_artist_is_verified_from_a_sample_of_the_tags(tmp_path):
 
 
 def test_a_confident_artist_costs_a_sample_of_tag_reads_not_all_of_them(tmp_path):
-    many_albums(tmp_path, albums=2, files=12)  # 24 files; the recorded fixtures know Vienna and Quartet
-    for old, new in (("Album 0 (1980)", "Vienna (1980)"), ("Album 1 (1981)", "Quartet (1982)")):
-        (tmp_path / "Ultravox" / old).rename(tmp_path / "Ultravox" / new)
+    # 24 files; the recorded fixtures know Vienna and Quartet
+    many_albums(tmp_path, albums=2, files=12, names={0: "Vienna (1980)", 1: "Quartet (1982)"})
     loader = CountingLoader()
     engine = NotesEngine(ultravox_fetchers(), loader=loader, discogs_mode="never")
     [proposal] = build_proposals([artist_target(tmp_path)], engine=engine)

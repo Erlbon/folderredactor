@@ -241,6 +241,15 @@ def ultravox_library(root: Path, vienna_tracks: int = 3, with_quartet: bool = Tr
     return artist
 
 
+def set_kinds(dialog, kinds: str) -> None:
+    """Ticks exactly these kinds ('artist,genre', or the words both / all) in the folder question's 'What to create'."""
+    from core.music.kinds import parse_kinds
+
+    wanted = parse_kinds(kinds)
+    for key, box in dialog.kind_boxes.items():
+        box.setChecked(key in wanted)
+
+
 def cristina_library(root: Path) -> Path:
     artist = root / "Cristina"
     make_audio(artist / "Cristina (1980)" / "01 Disco Clone.mp3", "Disco Clone", "Cristina", "Cristina", 1, "1980")

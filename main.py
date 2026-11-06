@@ -22,12 +22,12 @@ def main() -> int:
 
         return run(cli_main, sys.argv[1:])
 
-    from gui.main_window import MainWindow, folder_from_argv
+    from gui.main_window import folder_from_argv, start_window
 
     initial_folder = folder_from_argv(sys.argv)  # `folderredactor.exe D:/Music` opens that library
     return run_app(
         app_name=APP_NAME,
-        window_factory=lambda: MainWindow(initial_folder),
+        window_factory=lambda: start_window(initial_folder),
         crash_log_path=crash_log.log_path(),
         app_user_model_id="Erlbon.FolderRedactor.GUI.1",
         icon_path=asset_path("assets/icon.ico"),

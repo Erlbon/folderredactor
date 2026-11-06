@@ -22,7 +22,7 @@ def fetchers(monkeypatch):
         holder["f"] = fake_fetchers(wikipedia=use_wikipedia, **holder.get("extra", {}))
         return holder["f"]
 
-    monkeypatch.setattr(cmd_notes, "make_fetchers", make)
+    monkeypatch.setattr(cmd_notes, "make_video_fetchers", make)
     return holder
 
 
@@ -115,7 +115,7 @@ def test_a_missing_tmdb_key_is_reported_not_a_crash(tmp_path, capsys, monkeypatc
     import core.video.tmdb as notes_tmdb
 
     monkeypatch.setattr(notes_tmdb, "get_api_key", lambda: None)
-    monkeypatch.setattr(cmd_notes, "make_fetchers", lambda wiki: fake_fetchers(wikipedia=wiki, key=None))
+    monkeypatch.setattr(cmd_notes, "make_video_fetchers", lambda wiki: fake_fetchers(wikipedia=wiki, key=None))
     code, document = run_json(capsys, str(tmp_path))
     assert code == 1 and document["failed"] == 1 and "No TMDB API key" in document["problems"][0]
 
@@ -124,8 +124,8 @@ def test_nothing_to_find_is_an_error(tmp_path, capsys):
     from redactor_common.cli import CliError
 
     (tmp_path / "empty").mkdir()
-    with pytest.raises(CliError, match="no series or film folders"):
-        main(["notes", str(tmp_path), "--json"])
+    with pytest.raises(CliError, match="no series or film folders"):  # no file at all: it cannot be told apart, so say video
+        main(["notes", str(tmp_path), "--media", "video", "--json"])
 
 
 def test_the_update_flag_replaces_only_older_untouched_notes(tmp_path, capsys, fetchers, monkeypatch):
