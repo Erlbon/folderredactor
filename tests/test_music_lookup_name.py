@@ -85,8 +85,10 @@ def test_a_dewey_numbered_genre_folder_is_looked_up_and_titled_by_its_real_name(
     music = dewey_tree(tmp_path)
     wiki = genre_wiki()
     found = scan([music], kinds=("genre",))
-    assert [(t.kind, t.folder.name) for t in found.targets] == [("genre", "1.61 - Ska")]  # '0 - Bands' is a placeholder, D a grouping
-    [proposal] = build_proposals(found.targets, Fetchers(mb=lambda r: 1 / 0, wiki=wiki))
+    # '0 - Bands' is no genre but gets the layout-only about.md (2026-11-08), D is a grouping
+    assert [(t.kind, t.folder.name, t.layout_only) for t in found.targets] == [("genre", "0 - Bands", True), ("genre", "1.61 - Ska", False)]
+    bands, proposal = build_proposals(found.targets, Fetchers(mb=lambda r: 1 / 0, wiki=wiki))
+    assert parse_front_matter(bands.note_text)[0]["layout"] == "letter/artist/album" and bands.confidence.value == "confident"
     assert proposal.confidence.value == "confident"  # was: no Wikipedia page about a genre called '1.61 - Ska'
     meta, body = parse_front_matter(proposal.note_text)
     assert meta["title"] == "Ska" and "# Ska" in body and "Introduction from Wikipedia ([Ska]" in body

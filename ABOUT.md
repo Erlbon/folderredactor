@@ -57,6 +57,19 @@ is fetched from any other site), **Create a minimal note from the tags** (no onl
 ticks the uncertain folders whose top candidate holds one of your albums (still drafts, still only written on a click).
 A genre folder has a **Genres covered** box: edit it and look it up again.
 
+**Where pluteus finds the artists.** Every `about.md` this program writes says in its front matter how the folders below
+it are arranged, down to the album: `layout: letter/artist/album` above letter folders (`0 - Bands/H/Hellbillies`),
+`country/artist/album` above country folders, `artist/album` above artist folders, `album` for a collection whose albums
+sit directly inside it (`6.2 - Compilations`). pluteus reads that line instead of opening every folder. A folder above
+the artists with a plain name such as `0 - Bands` (no genre to look up) gets a short `about.md` that says only that.
+Letter folders (`H`, `A-C`) still get no note. An `about.md` that is already there without the line, yours or ours, is
+offered with **Also review notes made by an older version** ticked: on your yes the one line is added to its front
+matter, every other line kept (the note as it was goes to the Recycle Bin).
+
+**Box sets.** A box whose albums sit in disc folders (`Tom Lehrer/The Remains of Tom Lehrer/Disc 1 - .../[1953] - Songs
+by Tom Lehrer/`) is one album: it gets one `album.md` in the box folder, which is what makes pluteus show the whole box
+as one album under the artist. The disc folders and the albums inside them get none.
+
 The notes the ɯP3 Redactor already wrote count as this program's own: they are not offered again.
 
 ### Video
@@ -149,7 +162,7 @@ unmatched folders are listed with the reasons and the candidates and not written
 | `--no-discogs` | Music: do not use Discogs even with a token (= `--discogs never`). |
 | `--no-singles` | Music: leave the singles out of an artist's discography (faster). Also on when Preferences says so. |
 | `--norwegian-numbers` | Music: also read the Norwegian number words that are everyday English words (en, to, tre, fire, fem, ni, ti) as numbers when titles are compared. Also on when Preferences says so. |
-| `--update` | Also list the notes made by an older version of this program (stamped, an older format, nobody edited them) and, with `--write`, replace only those; the old note goes to the Recycle Bin. A note a person edited, or one this program did not write, is never touched. On a network share without a Recycle Bin the old note is kept and the replace is reported as failed. |
+| `--update` | Also list the notes made by an older version of this program (stamped, an older format, nobody edited them) and, with `--write`, replace only those; the old note goes to the Recycle Bin. A note a person edited, or one this program did not write, is never replaced; the one change made to it (music, `--kind genre`) is the `layout:` line added to an `about.md` that lacks it, every other line kept. On a network share without a Recycle Bin the old note is kept and the replace is reported as failed. |
 | `--update-legacy` | With `--update --write`: also replace the notes of the first versions (no stamp, so it cannot be known whether they were edited; still the Recycle Bin, still never an edited or foreign note). |
 | `--no-cache` | Do not use the disk cache of earlier answers: everything is asked again. |
 | `--no-wikipedia` | No Wikipedia introduction in the notes (fewer requests). |

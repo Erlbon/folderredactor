@@ -146,7 +146,9 @@ def test_soundtracks_folder_is_a_collection_with_albums_and_no_artist_level(tmp_
     assert sorted(found) == [("album", "Blade Runner (1982)"), ("album", "Pulp Fiction (1994)"), ("genre", "Soundtracks")]
     assert ("artist", "Soundtracks") not in found
     p = proposal_for(lib, ("genre", "Soundtracks"), Fetchers(wiki=genre_wiki(found=False)))
-    assert p.note_kind == "about" and p.path.endswith("about.md") and p.confidence == Confidence.UNCERTAIN
+    # no genre article, but a collection by its name: the about.md that says each album folder is its own (2026-11-08)
+    assert p.note_kind == "about" and p.path.endswith("about.md") and p.confidence == Confidence.CONFIDENT
+    assert p.layout == "album" and "layout: album" in p.note_text and "One folder per album." in p.note_text
 
 
 def test_a_folder_of_different_artists_is_found_to_be_a_collection_from_the_tags(tmp_path):

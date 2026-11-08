@@ -51,7 +51,7 @@ from core.music.level import (
 )
 from core.music.local import (
     ALL_KINDS, KIND_ALBUM, KIND_ARTIST, KIND_GENRE, KINDS, LocalAlbum, LocalGenre, read_genre, LocalArtist, ScanResult, Skipped, Target, album_children, classify,
-    album_folder_of, fold_name, is_collection_name, lookup_name, is_generic_name, read_album, read_artist, scan, sidecar_for, split_year, Loader,
+    album_folder_of, fold_name, folder_layout, is_collection_name, lookup_name, is_generic_name, read_album, read_artist, scan, sidecar_for, split_year, Loader,
 )
 from core.music.match import (
     Confidence, Evaluation, album_key, decide_artist, discography_hits, era_conflict, name_similarity,
@@ -59,14 +59,16 @@ from core.music.match import (
 )
 from core.music.render import (
     H_OTHER, LOCAL_ONLY_CREDIT, TrackInfo, discogs_facts_credit, group_discogs_discography, group_discography,
-    render_album_note, render_artist_note, render_genre_note, wikipedia_credits,
+    render_album_note, render_artist_note, render_genre_note, render_layout_note, wikipedia_credits,
 )
+from core.note_amend import is_current, with_front_matter_line
 from redactor_common.core import note_text
 from redactor_common.core.notes_model import KIND_NOTE, STATUS_SKIPPED, Candidate, NotesSummary  # noqa: F401 -- the shared model
 from redactor_common.core.notes_model import Proposal as _Proposal
 from redactor_common.core.notes_model import text_sha
 from redactor_common.core.notes import (
-    STATUS_ERROR, STATUS_WRITTEN, NoteState, NoteWriteResult, normalize_note_text, note_path, replace_note, write_note,
+    STATUS_ERROR, STATUS_WRITTEN, NoteState, NoteWriteResult, normalize_note_text, note_path, parse_front_matter, replace_note,
+    write_note,
 )
 
 __all__ = [
@@ -120,6 +122,10 @@ class Proposal(_Proposal):
     level_reasons: list[str] = field(default_factory=list)
     suggested_levels: list[str] = field(default_factory=list)
     genres: list[str] = field(default_factory=list)  # a genre / collection note: the genres the folder covers, as looked up
+    layout: str = ""  # an about.md: its `layout:` line (local.folder_layout), '' when the folders below cannot say one
+    # True: the proposal adds the `layout:` line to the about.md that is there (old_state), nothing else; written by
+    # core/note_amend.py on a yes, also when the note is the person's own
+    amend: bool = False
 
     def to_dict(self, with_text: bool = True) -> dict:
         out = super().to_dict(with_text)
@@ -127,6 +133,10 @@ class Proposal(_Proposal):
                     "suggested_levels": list(self.suggested_levels)})
         if self.genres:
             out["genres"] = list(self.genres)
+        if self.layout:
+            out["layout"] = self.layout
+        if self.amend:
+            out["action"] = "add-layout"
         return out
 
 
@@ -558,7 +568,11 @@ class NotesEngine:
     def _dispatch(self, target: Target, force: Optional[Candidate] = None, force_level: str = "",
                   genres: Optional[list[str]] = None) -> Proposal:
         try:
-            if target.kind == KIND_ARTIST:
+            if target.amend_layout and force is None and not force_level and not genres:
+                proposal = self._amend_proposal(target)
+            elif target.layout_only and target.kind == KIND_GENRE:
+                proposal = self._layout_proposal(target)
+            elif target.kind == KIND_ARTIST:
                 proposal = self._artist_proposal(target, force, force_level, genres)
             elif target.kind == KIND_GENRE:
                 proposal = self._genre_proposal(target, genres)
@@ -1115,15 +1129,56 @@ class NotesEngine:
     def _genre_proposal(self, target: Target, genres: Optional[list[str]] = None) -> Proposal:
         local = read_genre(target.folder)
         proposal = Proposal(target, local=local, level=LEVEL_GENRE, suggested_levels=[SUGGEST_COLLECTION, SUGGEST_SKIP])
-        proposal.level_reasons = [f"{len(local.artists)} artist folder(s) directly below it"
-                                  if local.artists else f"{len(local.albums)} album folder(s) directly below it"]
+        proposal.layout = folder_layout(target.folder)
+        proposal.level_reasons = [f"{len(local.artists)} artist folder(s) directly below it" if local.artists
+                                  else f"{len(local.albums)} album folder(s) directly below it" if local.albums
+                                  else "folders that hold artist folders below it"]
+        proposal.level_reasons.append(_layout_reason(proposal.layout))
         return self._genre_like(proposal, local.name, genres)
 
     def _collection_proposal(self, proposal: Proposal, local: LocalArtist, genres: Optional[list[str]] = None) -> Proposal:
         """A folder found (from the tags / its name) to be a collection, not an artist: it gets about.md and each
-        album folder below it is an album of its own, with no artist level."""
+        album folder below it is an album of its own, with no artist level (`layout: album`)."""
         proposal.kind_override = "about"
+        proposal.layout = "album"
+        proposal.level_reasons.append(_layout_reason(proposal.layout))
         return self._genre_like(proposal, local.name.lstrip("_").strip(), genres)
+
+    def _layout_proposal(self, target: Target) -> Proposal:
+        """A folder above the artists with a generic name ('0 - Bands' above H/, A-C/...): no genre to look up; its about.md
+        says how the folders below are arranged (render_layout_note). From the folders alone, so it is confident."""
+        layout = folder_layout(target.folder)
+        name = lookup_name(target.folder.name.lstrip("_").strip())
+        proposal = Proposal(target, level=LEVEL_GENRE, suggested_levels=[SUGGEST_COLLECTION, SUGGEST_SKIP], layout=layout)
+        proposal.level_reasons = [f"'{target.folder.name}' names a place for music, not a genre: the note only says how it is sorted",
+                                  _layout_reason(layout)]
+        proposal.reasons = list(proposal.level_reasons)
+        if not layout:
+            return proposal
+        proposal.title, proposal.sources = name, ["folders"]
+        proposal.note_text = render_layout_note(name=name, layout=layout)
+        proposal.confidence = Confidence.CONFIDENT
+        return proposal
+
+    def _amend_proposal(self, target: Target) -> Proposal:
+        """The about.md that is there gets the `layout:` line Pluteus reads, and nothing else changes (core/note_amend.py): its
+        own keys, status: draft and the text stay. A note of ours nobody edited keeps reading as ours (its stamp is worked
+        out again). Confident (the folders say it), written only on a yes like any change to an existing note."""
+        state = target.update
+        proposal = Proposal(target, level=LEVEL_GENRE, suggested_levels=[SUGGEST_COLLECTION, SUGGEST_SKIP],
+                            layout=target.amend_layout, amend=True)
+        proposal.level_reasons = [_layout_reason(target.amend_layout)]
+        proposal.reasons = [f"{Path(state.path).name} is there without a layout line: adds `layout: {target.amend_layout}` "
+                            f"to its front matter, nothing else changes"]
+        text = with_front_matter_line(state.text, "layout", target.amend_layout, restamp=is_current(state))
+        if text is None:
+            proposal.reasons.append("its front matter could not be read cleanly: left alone")
+            return proposal
+        meta = parse_front_matter(text)[0]
+        proposal.title = str(meta.get("title") or lookup_name(target.folder.name))
+        proposal.note_text, proposal.sources = text, ["folders"]
+        proposal.confidence = Confidence.CONFIDENT
+        return proposal
 
     def _verify_genres(self, names: list[str], notes: list[str], problems: list[str]):
         """([(genre as asked, its verified Wikipedia page)], [genres that could not be verified as a music genre])."""
@@ -1187,6 +1242,16 @@ class NotesEngine:
             if not found:
                 found, failed = self._verify_genres([name], proposal.reasons, proposal.problems)
         proposal.genres = list(covered)
+        if (not found and not explicit and link_page is None and proposal.layout == "album"
+                and is_collection_name(proposal.folder.name)):
+            # a collection by its name ('6.2 - Compilations', 'Soundtracks', 'Various Artists') is no genre: its about.md still
+            # says that each album folder is its own (the layout Pluteus needs), from the folders alone. A folder found to be a
+            # collection only from its tags stays uncertain: a person decides that level.
+            proposal.reasons.append("no genre article: a collection, the note only says how it is sorted")
+            proposal.title, proposal.sources = name, ["folders"]
+            proposal.note_text = render_layout_note(name=name, layout=proposal.layout)
+            proposal.confidence = Confidence.CONFIDENT
+            return proposal
         if failed or not found:
             proposal.confidence = Confidence.UNCERTAIN
             for genre in failed:
@@ -1204,10 +1269,10 @@ class NotesEngine:
         if len(found) == 1:
             page = found[0][1]
             proposal.note_text = render_genre_note(
-                name=name, intro=wp.trim_extract(page.extract), links=links, footer=[credit])
+                name=name, intro=wp.trim_extract(page.extract), links=links, footer=[credit], layout=proposal.layout)
         else:
             proposal.note_text = render_genre_note(
-                name=name, links=links, footer=[credit], genres=[g for g, _p in found],
+                name=name, links=links, footer=[credit], genres=[g for g, _p in found], layout=proposal.layout,
                 sections=[(page.title, wp.trim_extract(page.extract)) for _g, page in found])
         return proposal
 
@@ -1427,8 +1492,11 @@ class NotesEngine:
             if not parent_is_artist:
                 proposal.level_reasons.append(
                     f"the folder above ('{parent.name}') is not an artist folder: {parent_decision.reasons[0]}")
+        if local.box:
+            proposal.level_reasons.append("a box set: its albums sit in disc folders, the box is one album (album.md makes "
+                                          "Pluteus show it so)")
         # one folder of loose tracks of one artist (several album tags, no album folder): an artist level
-        if (force_level != SUGGEST_ALBUM and len(local.tag_titles) >= 3 and local.artist
+        if (force_level != SUGGEST_ALBUM and not local.box and len(local.tag_titles) >= 3 and local.artist
                 and names_agree(lookup_name(target.folder.name), local.artist)):
             proposal.level, proposal.suggested_levels = LEVEL_ARTIST, [SUGGEST_ARTIST, SUGGEST_ALBUM, SUGGEST_SKIP]
             proposal.level_reasons.append(f"{len(local.tag_titles)} different album tags in a folder named like the artist")
@@ -1647,6 +1715,15 @@ class NotesEngine:
         proposal.title = title
         proposal.sources = sources
         return proposal
+
+
+def _layout_reason(layout: str) -> str:
+    words = layout.split("/")
+    if "artist" in words:
+        return f"layout: {layout} (the artists are {words.index('artist') + 1} folder(s) down)"
+    if layout:
+        return f"layout: {layout} (each album folder is its own)"
+    return "no layout line: the folders below are arranged differently from each other"
 
 
 _GENRE_SPLIT = re.compile(r"\s*(?:,|/|\+|&|\band\b)\s*", re.IGNORECASE)

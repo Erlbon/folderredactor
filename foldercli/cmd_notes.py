@@ -110,7 +110,9 @@ def add_notes_parser(sub) -> None:
                         help="also list the notes made by an older version of this program (stamped, an older format, "
                              "nobody edited them) and, with --write, replace ONLY those (the old note goes to the Recycle "
                              "Bin; on a network drive there is no Recycle Bin and the old note is kept). Notes edited by a "
-                             "person or not made by this program are never touched")
+                             "person or not made by this program are never replaced; the one change made to them (music, "
+                             "--kind genre) is the `layout:` line added to the front matter of an about.md that lacks it, "
+                             "every other line kept")
     parser.add_argument("--update-legacy", action="store_true",
                         help="with --update --write: ALSO replace the notes of the first versions (no stamp, so it cannot be "
                              "known whether they were edited; still the Recycle Bin, still never an edited or foreign note)")

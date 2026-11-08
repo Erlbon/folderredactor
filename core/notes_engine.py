@@ -76,8 +76,34 @@ def write_proposal(proposal: Proposal, dry_run: bool = False, allow_uncertain: b
     """Writes the draft of a CONFIDENT proposal (the shared write_proposal: an uncertain / none one is refused with status
     'skipped' unless a person chose it, an existing note is never overwritten). With the opt-in History on, a written note
     is recorded so it can be undone from Tools > History (undo_note_entry). A refresh sends the older note to the Recycle
-    Bin; where there is none (a network share) the refresh fails and the older note is kept."""
+    Bin; where there is none (a network share) the refresh fails and the older note is kept.
+
+    A proposal with `amend` set (music: the `layout:` line added to an about.md that is there) changes a note that may be the
+    person's own: core/note_amend.py writes it, only while the note is still what was looked at, the old one to the Recycle Bin."""
+    if getattr(proposal, "amend", False) and proposal.is_update:
+        return _amend(proposal, dry_run, allow_uncertain)
     return _write_proposal(proposal, dry_run, allow_uncertain, record=record_note_created, trash=_trash())
+
+
+def _amend(proposal: Proposal, dry_run: bool, allow_uncertain: bool) -> NoteWriteResult:
+    from redactor_common.core.notes_model import STATUS_SKIPPED  # noqa: PLC0415
+
+    from core.note_amend import amend_note  # noqa: PLC0415
+
+    if (proposal.confidence.value != "confident" and not allow_uncertain) or not proposal.note_text:
+        return NoteWriteResult(STATUS_SKIPPED, proposal.path, "there is no change to write", dry_run)
+    path = proposal.old_state.path
+    old_bytes = None
+    if not dry_run:
+        try:
+            with open(path, "rb") as handle:
+                old_bytes = handle.read()
+        except OSError:
+            old_bytes = None
+    result = amend_note(path, proposal.note_text, proposal.old_state, dry_run=dry_run, trash=_trash())
+    if result.ok and not dry_run:
+        record_note_created(result.path, proposal.note_text, True, old_bytes=old_bytes)
+    return result
 
 
 def record_note_created(path: str, text: str, replaced: bool = False, old_bytes=None) -> None:

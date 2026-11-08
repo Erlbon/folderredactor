@@ -73,6 +73,7 @@ title: Ska
 genres: [ska, ska punk]
 links: [https://en.wikipedia.org/wiki/Ska, https://en.wikipedia.org/wiki/Ska_punk]
 status: draft
+layout: artist/album
 ---
 
 # Ska

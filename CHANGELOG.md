@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-08#01 -- The notes tell pluteus where the artists are (plan step 11b, D26)
+
+pluteus builds no index of a library: music apps find the artists and albums from the folder notes. Two things more are
+written for that.
+
+- **`layout:` in every genre or collection `about.md`**: the levels below the folder down to the album, from the folders
+  alone. `0 - Bands` above its letter folders says `letter/artist/album`, a genre above country folders
+  `country/artist/album`, a genre of artist folders `artist/album`, a collection of albums (`6.2 - Compilations`) `album`.
+  The line sits in the front matter before the stamp, and the stamp covers it.
+- **A folder above letter, country or sub-genre folders is a genre level now** and gets its `about.md` (not the folder
+  you scan from when that is the library root). `0 - Bands` (a name that is no genre) gets a short `about.md` that only
+  says how it is sorted; so does a collection by name (`Compilations`, `Soundtracks`) when Wikipedia has no genre article
+  for it. Letter folders still get no note.
+- **An `about.md` that is already there without the line** (yours or ours) is offered when "Also review notes made by an
+  older version" is ticked (`--update` on the command line): on a yes the one line is added to its front matter, every
+  other line kept (`status: draft` and your own keys too); the note as it was goes to the Recycle Bin and History can undo
+  it. A note of ours nobody edited still counts as ours afterwards. A note edited between the look and the yes is left alone.
+- **Box sets**: a box whose albums sit in disc folders (`Box/Disc 1 - .../[1953] - Album/songs`) is one album. It gets
+  one `album.md` in the box folder, which makes pluteus show the whole box as one album under the artist; the disc folders
+  and the albums inside them get none (before, each disc folder was taken for an artist). The box is looked up by its own
+  title (an `Artist - ` in front dropped), not by the album tags of the albums inside it.
+
 ## 2026-11-06#07 -- The Redactors' shared keys (plan step 11a, D25)
 
 - **The API keys are shared by the Redactors**: one entry per service in the credential store

@@ -35,7 +35,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 
-from core.music.local import LocalAlbum, VARIOUS_ARTIST_NAMES, fold_name, is_collection_name
+from core.music.local import LocalAlbum, VARIOUS_ARTIST_NAMES, fold_name, is_collection_name, lookup_name
 from core.music.numbers import compare_key
 
 LEVEL_ARTIST = "artist"
@@ -166,6 +166,60 @@ _OST_STRIP = re.compile(
     r"(?:soundtrack|score|recording)|soundtrack|ost|music\s+from\s+the\s+(?:motion\s+picture|film|series))\b[\])]?\s*$",
     re.IGNORECASE,
 )
+
+
+# ---------------------------------------------------------------------------
+# The layout line (about.md's `layout:`, read by Pluteus: docs/library-layout.md)
+# ---------------------------------------------------------------------------
+
+# Names of a level between a genre and its artists that sorts the artists by country or region ('1.5 - Hip-hop/Norway/
+# Artist/Album'): English and Norwegian names and the usual short forms, folded. Only the WORD of the layout line depends
+# on it ('country/artist/album' or 'genre/artist/album'): Pluteus counts the levels, the word is for people.
+COUNTRY_NAMES = frozenset(fold_name(n) for n in (
+    "Afghanistan", "Albania", "Algeria", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bangladesh",
+    "Belarus", "Belgium", "Benin", "Bolivia", "Bosnia", "Brazil", "Bulgaria", "Burkina Faso", "Cameroon", "Canada", "Cape Verde",
+    "Chile", "China", "Colombia", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Czechia", "Denmark",
+    "Dominican Republic", "Ecuador", "Egypt", "England", "Estonia", "Ethiopia", "Faroe Islands", "Finland", "France", "Gambia",
+    "Georgia", "Germany", "Ghana", "Greece", "Greenland", "Guinea", "Haiti", "Hungary", "Iceland", "India", "Indonesia", "Iran",
+    "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Kazakhstan", "Kenya", "Korea", "South Korea",
+    "Latvia", "Lebanon", "Lithuania", "Luxembourg", "Madagascar", "Mali", "Malaysia", "Mexico", "Moldova", "Mongolia",
+    "Morocco", "Mozambique", "Netherlands", "Holland", "New Zealand", "Nigeria", "Northern Ireland", "Norway", "Pakistan",
+    "Palestine", "Peru", "Philippines", "Poland", "Portugal", "Puerto Rico", "Romania", "Russia", "Scotland", "Senegal",
+    "Serbia", "Sierra Leone", "Slovakia", "Slovenia", "Somalia", "South Africa", "Spain", "Sweden", "Switzerland", "Syria",
+    "Taiwan", "Tanzania", "Thailand", "Trinidad", "Tunisia", "Turkey", "Uganda", "Ukraine", "United Kingdom", "United States",
+    "Uruguay", "Venezuela", "Vietnam", "Wales", "Zambia", "Zimbabwe",
+    "UK", "GB", "Great Britain", "Britain", "US", "USA", "America", "U.S.A.", "U.K.",
+    "Norge", "Sverige", "Danmark", "Finland", "Island", "Tyskland", "Frankrike", "Spania", "Italia", "Nederland", "Storbritannia",
+    "Russland", "Polen", "Hellas", "Japan", "Kina", "Sør-Afrika", "Østerrike", "Sveits", "Belgia", "Irland", "Skottland",
+    "Africa", "Asia", "Europe", "Latin America", "South America", "North America", "Oceania", "Middle East", "Caribbean",
+    "Scandinavia", "Nordic", "Norden", "Afrika", "Europa", "Latin-Amerika", "Sør-Amerika", "Nord-Amerika", "Skandinavia",
+    "Other", "Others", "International", "World", "Misc",
+))
+_REGION_ONLY = frozenset(fold_name(n) for n in ("Other", "Others", "International", "World", "Misc"))
+
+
+def level_word(names: list[str], groupings: bool) -> str:
+    """The word for a level between a folder and its artists: 'letter' when every folder of it is an alphabetical grouping
+    (`groupings`, decided by the caller), 'country' when the folders are named after countries or regions, else 'genre'
+    (sub-genres: 'Rock/Punk/Artist/Album')."""
+    if groupings:
+        return "letter"
+    folded = [fold_name(lookup_name(n)) for n in names]
+    if folded and all(f in COUNTRY_NAMES for f in folded) and not all(f in _REGION_ONLY for f in folded):
+        return "country"
+    return "genre"
+
+
+def layout_sentence(layout: str) -> str:
+    """One plain line about a layout, for a note that has nothing else to say: 'Sorted by first letter, one folder per artist.'"""
+    words = [w for w in (layout or "").split("/") if w]
+    if not words:
+        return ""
+    parts = {"letter": "sorted by first letter", "country": "sorted by country", "genre": "sorted by genre"}
+    said = [parts[w] for w in words[:-2] if w in parts]
+    said.append("one folder per artist" if "artist" in words else "one folder per album")
+    text = ", ".join(said)
+    return text[0].upper() + text[1:] + "."
 
 
 def is_soundtrack_like(title: str, genres: list[str], parent_name: str = "") -> bool:

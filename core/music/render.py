@@ -13,7 +13,9 @@ Shape (changed 2026-10-15 to the contract in Pluteus' docs/notes-format.md, "Dis
               "## Live albums", "## Compilations", "## EPs", "## Singles", "## Remixes", "## Soundtracks",
               "## Releases" (Pluteus adds the in-library / missing badges by comparing them with the folders), the
               credit footer. No library list, no [[links]], no "(in this library)".
-  about.md    front matter, a short introduction, the credit footer.
+  about.md    front matter (with `layout:`, the levels below the folder down to the album, which Pluteus reads to find the
+              artists: docs/library-layout.md), a short introduction, the credit footer. A genre-level folder with a generic
+              name ('0 - Bands') gets the layout-only shape: front matter, heading, one line on how it is sorted.
   album.md    front matter, a short introduction, Artist / Released / Label / Country lines, "## Credits" (only
               structured facts: producer, writers, who played what), "## Tracklist", "## In this folder" (the
               local files compared with the tracklist: present, missing, extra; INCLUDE_FOLDER_COMPARISON), the
@@ -33,6 +35,7 @@ from core.music.musicbrainz import Credits
 from redactor_common.core.note_text import credit_footer
 from core.version import APP_VERSION
 from redactor_common.core.notes import NoteFrontMatter, render_note
+from core.note_amend import with_front_matter_line
 
 # The shape of the notes this module writes, stamped into every note (with the app version and a hash, see
 # redactor_common core/notes.py note_hash) so a later run can tell an old note of ours that nobody edited from one a
@@ -311,14 +314,15 @@ def wikipedia_credits(pages: Iterable[tuple[str, str]]) -> str:
 
 def render_genre_note(
     *, name: str, intro: str = "", links: Iterable[str] = (), footer: Iterable[str] = (),
-    sections: Iterable[tuple[str, str]] = (), genres: Iterable[str] = (),
+    sections: Iterable[tuple[str, str]] = (), genres: Iterable[str] = (), layout: str = "",
 ) -> str:
     """The about.md of a genre or collection folder: a short introduction (Wikipedia) and the credit footer. No
     list of what is below and no [[links]]: the folders are the structure, Pluteus shows them.
 
     A folder that covers SEVERAL genres ('1.61 - Ska' covers ska and ska punk) passes `sections` ((genre title, its
     introduction) in order) and `genres` (listed in the front matter): the body is '# Name' and one '## Genre' section per
-    genre, then the one credit footer. Without `sections` the note keeps its single-introduction shape."""
+    genre, then the one credit footer. Without `sections` the note keeps its single-introduction shape. `layout` (folder_layout())
+    goes into the front matter as `layout:`; '' leaves the line out."""
     front = NoteFrontMatter(title=name, genres=[g.lower() for g in genres], links=list(links), generator=generator_text(),
                             note_format=CURRENT_NOTE_FORMAT)
     parts = [f"# {name}"]
@@ -327,7 +331,22 @@ def render_genre_note(
         parts += [f"## {title}" + ("\n\n" + text if text else "") for title, text in sections]
     else:
         parts.append(intro)
-    return render_note(front, _block(*parts, credit_footer(list(footer))))
+    return with_layout(render_note(front, _block(*parts, credit_footer(list(footer)))), layout)
+
+
+def with_layout(text: str, layout: str) -> str:
+    """A note of ours with the `layout:` line in its front matter (before the stamp, the stamp worked out again)."""
+    return (with_front_matter_line(text, "layout", layout, restamp=True) or text) if layout else text
+
+
+def render_layout_note(*, name: str, layout: str) -> str:
+    """The about.md of a folder above the artists that is no genre ('0 - Bands' above its letter folders): only there to say
+    how the folders below are arranged. Front matter with the layout, the heading, one plain line ('Sorted by first letter,
+    one folder per artist.')."""
+    from core.music.level import layout_sentence  # noqa: PLC0415
+
+    front = NoteFrontMatter(title=name, generator=generator_text(), note_format=CURRENT_NOTE_FORMAT)
+    return with_layout(render_note(front, _block(f"# {name}", layout_sentence(layout))), layout)
 
 
 def render_album_note(

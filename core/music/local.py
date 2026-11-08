@@ -10,14 +10,18 @@ Qt-free. Finding the targets only lists directories (cheap, no tags are read); `
 the tags of one target's files when its proposal is built.
 
 The layout rule, in short:
-  - album folder  = has music files directly in it (or in CD1/Disc 2 sub-folders) and no album folders below it;
+  - album folder  = has music files directly in it (or in CD1/Disc 2 sub-folders) and no album folders below it; a BOX SET
+                    (Box/Disc 1 - .../[1953] - Album/songs: disc folders that hold album folders) is one album too;
   - artist folder = has at least one album folder directly below it (loose music files beside them are ignored);
   - genre folder  = has at least one ARTIST folder directly below it and is not itself an artist or album folder,
                     and is not the library root (the folder the scan started from, when it recurses), or is an
                     underscore grouping folder (_Name: a grouping, not a series/artist, like in the comics layout).
                     The levels are decided by depth from the audio files, never by a folder's name: Artist/Album has no
-                    genre level, Genre/Artist/Album has one. A folder that only holds genre folders (the library root
-                    above a genre level) is none of these and gets no note;
+                    genre level, Genre/Artist/Album has one. A folder ABOVE letter, country or sub-genre folders
+                    ('0 - Bands/H/<Band>', '1.5 - Hip-hop/Norway/<Artist>') is a genre folder too (2026-11-08: its about.md
+                    carries the `layout:` line Pluteus reads), except the folder the scan started from when that is a
+                    library root (a generic name, or a folder of genres);
+  - every about.md says the levels below it (folder_layout: 'letter/artist/album', 'artist/album', 'album'...);
   - anything else (a folder of scans) is neither: it gets no note.
 """
 
@@ -33,7 +37,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional
 
 from core.music.tags import AudioTags, is_audio_name
-from redactor_common.core.notes import NoteState, existing_note, existing_sidecar, note_status
+from redactor_common.core.notes import NoteState, existing_note, existing_sidecar, note_status, parse_front_matter
 from redactor_common.core.temp_names import is_app_temp_name
 
 KIND_ARTIST = "artist"
@@ -53,6 +57,9 @@ GENERIC_FOLDER_NAMES = frozenset({
     # a place that holds the artists, not a genre or an artist: a folder you choose by this name is a library root
     "bands", "band", "artists", "media", "albums", "archive", "collection",
 })
+# Of those, the names of a folder that sorts the artists or albums below the library root ('780 - Music/0 - Bands/H/<Band>'):
+# no genre to look up, but its about.md is where Pluteus reads how the folders below are arranged (a layout-only note).
+LAYOUT_ONLY_NAMES = frozenset({"bands", "band", "artists", "albums"})
 LIBRARY_ROOT_MESSAGE = (
     "This folder looks like a library root, not a genre: nothing to write here. "
     "Choose the genre folder itself or one level lower.")
@@ -214,17 +221,34 @@ def disc_folders(folder: Path) -> list[Path]:
     return [d for d in _entries(folder)[1] if _DISC_FOLDER.match(d.name) and _entries(d)[0]]
 
 
+def box_discs(folder: Path) -> list[Path]:
+    """The disc folders of a BOX SET (Box/Disc 1 - .../[1953] - Album/songs): disc-named sub-folders with no music files of
+    their own but folders of music files inside. The box is one album (its note is album.md, which is what makes Pluteus show
+    it as one album with the songs two folders down); the disc folders and the albums inside them are not albums of their own."""
+    out = []
+    for disc in _entries(folder)[1]:
+        if _DISC_FOLDER.match(disc.name):
+            files, inner = _entries(disc)
+            if not files and any(_entries(d)[0] for d in inner):
+                out.append(disc)
+    return out
+
+
 def album_files(folder: Path) -> list[Path]:
-    """Every music file of an album folder: the ones directly in it, then those of its disc folders."""
+    """Every music file of an album folder: the ones directly in it, then those of its disc folders, then (a box set) those
+    of the albums inside its disc folders."""
     files, _ = _entries(folder)
     for disc in disc_folders(folder):
         files += _entries(disc)[0]
+    for disc in box_discs(folder):
+        for inner in _entries(disc)[1]:
+            files += _entries(inner)[0]
     return files
 
 
 def _is_album_like(folder: Path) -> bool:
     files, _dirs = _entries(folder)
-    return bool(files) or bool(disc_folders(folder))
+    return bool(files) or bool(disc_folders(folder)) or bool(box_discs(folder))
 
 
 def album_children(folder: Path) -> list[Path]:
@@ -236,7 +260,11 @@ def album_folder_of(file: str | os.PathLike) -> Path:
     """The album folder a music file belongs to: its folder, or the folder above when that is a 'Disc 2' style
     sub-folder."""
     parent = Path(file).parent
-    return parent.parent if _DISC_FOLDER.match(parent.name) else parent
+    if _DISC_FOLDER.match(parent.name):
+        return parent.parent
+    if _DISC_FOLDER.match(parent.parent.name) and parent.parent in box_discs(parent.parent.parent):
+        return parent.parent.parent  # Box/Disc 1/Album/song: the box is the album
+    return parent
 
 
 def classify(folder: Path) -> str:
@@ -258,6 +286,12 @@ class Target:
     kind: str  # KIND_ARTIST / KIND_ALBUM
     parent_name: str = ""  # the folder above (the artist, in the library layout), a hint for an album
     update: Optional["NoteState"] = None  # set when the folder has an older note of ours to refresh (scan include_outdated)
+    # A genre-level folder with a generic name ('0 - Bands' above its letter folders): no genre to look up, its about.md only
+    # says how the folders below are arranged (the layout line Pluteus reads) under a heading.
+    layout_only: bool = False
+    # An about.md that is there but has no `layout:` line: the line to add to its front matter, nothing else changes (with
+    # `update`, the note as it was looked at; written only on a yes, like a refresh).
+    amend_layout: str = ""
 
     @property
     def note_kind(self) -> str:
@@ -360,7 +394,55 @@ def classify_level(folder: Path, is_root: bool = False, include_subfolders: bool
         return kind
     if any(classify(child) == KIND_ARTIST for child in _entries(folder)[1]):
         return KIND_GENRE
+    if _above_artists(folder, 2):
+        # above letter / country / sub-genre folders: its about.md carries the layout Pluteus reads. Not the folder a scan
+        # started from when that is a library root: a generic name, or a folder that holds genres ('Music/Rock, Pop, ...')
+        if not is_root:
+            return KIND_GENRE
+        layout = folder_layout(folder)
+        if layout and not layout.startswith("genre/") and not is_generic_name(folder.name.lstrip("_")):
+            return KIND_GENRE
     return ""
+
+
+def _above_artists(folder: Path, depth: int) -> bool:
+    """Some folder below `folder` that is no level itself has artist folders directly inside it (0 - Bands/H/<Band>,
+    1.5 - Hip-hop/Norway/<Artist>), at most `depth` such levels down. Stops at the first one found."""
+    for child in _entries(folder)[1]:
+        if classify(child):
+            continue
+        if any(classify(g) == KIND_ARTIST for g in _entries(child)[1]):
+            return True
+        if depth > 1 and _above_artists(child, depth - 1):
+            return True
+    return False
+
+
+def folder_layout(folder: Path, depth: int = 3) -> str:
+    """The `layout:` line of the about.md of a genre or collection folder (Pluteus: docs/library-layout.md): the levels below
+    it down to the album, 'artist/album' for artist folders inside it, 'album' for album folders inside it (a collection),
+    'letter/artist/album' above alphabetical groupings, 'country/artist/album' above country folders, 'genre/...' above
+    sub-genres. '' when it cannot be said: nothing below, or the folders below are arranged differently from each other
+    (a nearer about.md says it for each of them then). Folder structure only, no tags."""
+    from core.music.level import level_word  # noqa: PLC0415 -- level imports this module
+
+    if classify(folder) == KIND_ALBUM:
+        return ""  # an album (a box set's disc folders are not artists)
+    children = _entries(folder)[1]
+    kinds = [classify(c) for c in children]
+    if KIND_ARTIST in kinds:
+        return "artist/album"
+    if KIND_ALBUM in kinds:
+        return "album"
+    if depth <= 1:
+        return ""
+    below = [(c, folder_layout(c, depth - 1)) for c in children]
+    below = [(c, layout) for c, layout in below if layout]
+    if not below or len({layout for _c, layout in below}) != 1:
+        return ""
+    names = [c.name for c, _layout in below]
+    word = level_word(names, all(is_alphabetical_grouping(n) for n in names))
+    return f"{word}/{below[0][1]}"
 
 
 def scan(
@@ -404,11 +486,25 @@ def scan(
             kind = KIND_GENRE  # 'Various Artists', 'Soundtracks'...: a collection, its note is about.md
             if kind not in wanted:
                 return
+        layout_only = False
         if kind in (KIND_ARTIST, KIND_GENRE) and is_generic_name(folder.name.lstrip("_")) and not is_collection_name(folder.name):
-            result.skipped.append(Skipped(folder, kind, f"'{folder.name or folder}' is not a {kind} folder name"))
-            result.library_root = result.library_root or key in root_keys
-            return
+            # a generic name below the library root ('0 - Bands' above H/, A-C/...) still gets the about.md Pluteus reads the
+            # layout from; the folder the scan started from is the library root and gets nothing
+            layout_only = (kind == KIND_GENRE and key not in root_keys and fold_name(lookup_name(folder.name)) in LAYOUT_ONLY_NAMES
+                           and bool(folder_layout(folder)))
+            if not layout_only:
+                result.skipped.append(Skipped(folder, kind, f"'{folder.name or folder}' is not a {kind} folder name"))
+                result.library_root = result.library_root or key in root_keys
+                return
         found = existing_note(folder)
+        if found and include_outdated and KIND_GENRE in wanted and Path(found).name.lower() == "about.md":
+            state = note_status(found, CURRENT_NOTE_FORMAT)
+            if not (kind == KIND_GENRE and state.replaceable):  # a refresh of an older note of ours writes the line anyway
+                amend = missing_layout(folder, state)
+                if amend:
+                    result.targets.append(Target(folder, KIND_GENRE, parent_name=lookup_name(folder.parent.name), update=state,
+                                                 layout_only=layout_only, amend_layout=amend))
+                    return
         if found:
             if include_outdated and Path(found).name.lower() == f"{NOTE_KIND_OF[kind]}.md":
                 state = note_status(found, CURRENT_NOTE_FORMAT)
@@ -419,7 +515,7 @@ def scan(
                 return
             result.skipped.append(Skipped(folder, kind, f"already has {Path(found).name}"))
             return
-        result.targets.append(Target(folder, kind, parent_name=lookup_name(folder.parent.name)))
+        result.targets.append(Target(folder, kind, parent_name=lookup_name(folder.parent.name), layout_only=layout_only))
 
     def walk(folder: Path, is_root: bool = False) -> None:
         kind = classify_level(folder, is_root, True)
@@ -438,6 +534,23 @@ def scan(
             if kind:
                 consider(root, kind)
     return result
+
+
+def missing_layout(folder: Path, state: NoteState) -> str:
+    """The layout line an existing about.md lacks: folder_layout(folder) when its front matter has no `layout:` key (or there
+    is no front matter at all), '' when it has one (the person's word stands), when the layout cannot be said, or when the
+    front matter is not clean enough to add a line to safely (it starts with '---' but does not parse)."""
+    text = state.text
+    if not text and state.path:
+        try:
+            text = Path(state.path).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return ""
+    from core.note_amend import with_front_matter_line  # noqa: PLC0415
+
+    if "layout" in parse_front_matter(text)[0] or with_front_matter_line(text, "layout", "x") is None:
+        return ""
+    return folder_layout(folder)
 
 
 # ---------------------------------------------------------------------------
@@ -476,6 +589,7 @@ class LocalAlbum:
     track_artists: list[str] = field(default_factory=list)  # the artist tags, most common first
     composers: list[str] = field(default_factory=list)
     genres: list[str] = field(default_factory=list)
+    box: bool = False  # a box set: its albums sit in disc folders (box_discs), the box is the one album
 
     @property
     def folder_name(self) -> str:
@@ -594,7 +708,18 @@ def album_from_tags(folder: Path, files: list[AudioTags]) -> LocalAlbum:
 def read_album(folder: Path, loader: Optional[Loader] = None) -> LocalAlbum:
     """The album folder's files and tags."""
     loader = loader or default_loader
-    return album_from_tags(folder, loader(album_files(folder)))
+    album = album_from_tags(folder, loader(album_files(folder)))
+    if box_discs(folder):
+        # A box set: its title is the box's (the folder name, 'Artist - ' in front of it dropped when that is the artist folder
+        # above), not the album tags of the albums inside it, which would match one of those albums instead of the box.
+        album.box = True
+        artist, sep, rest = album.title.partition(" - ")
+        if sep and rest.strip() and fold_name(artist) == fold_name(lookup_name(folder.parent.name)):
+            album.title = rest.strip()
+        if len(album.tag_titles) > 1:
+            album.tag_titles = []
+            album.year = split_year(folder.name)[1]  # the years of the albums inside are not the box's
+    return album
 
 
 def read_artist(
