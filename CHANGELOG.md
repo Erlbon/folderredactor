@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-08#02 -- redactor_common 2026-11-08-02
+
+- **redactor_common 2026-11-08-02** (was 2026-11-06-03), the family's one pin: the update framework (an update
+  manifest in every release, the declared update channel, the shared installer contract, the release tool and its
+  gate) and the update check falling back to GitHub's API when a release download fails. Nothing here uses it yet;
+  the next check-in moves this app onto it.
+
 ## 2026-11-08#01 -- The notes tell pluteus where the artists are (plan step 11b, D26)
 
 pluteus builds no index of a library: music apps find the artists and albums from the folder notes. Two things more are
