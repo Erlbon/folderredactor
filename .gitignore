@@ -16,6 +16,7 @@ folderredactor_settings.ini.tmp
 folderredactor_crash.log
 folderredactor_journal.jsonl*
 folderredactor_updates.json
+folderredactor_notes_cache.sqlite
 notes_backup/
 
 # Each repo tests in its own venv (redactor-build-tools/devenv/venv_sync.py)

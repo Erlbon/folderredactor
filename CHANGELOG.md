@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-08#05 -- The first release (v0.1)
+
+- **Release notes of their own** (`docs/releases/v<build>.md`, named in `pyproject.toml`): the release tool takes them
+  instead of only this version's CHANGELOG section. The first ones say what the program does as a whole.
+- The notes' lookup cache from a run from source (`folderredactor_notes_cache.sqlite`) is ignored by git, like the
+  other files beside the program.
+
 ## 2026-11-08#04 -- `notes --update` refreshes notes again
 
 - **Fixed:** `folderredactor notes PATH --update` ran the program's own update check ("GitHub lists no published
