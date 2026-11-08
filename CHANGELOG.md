@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-11-08#03 -- An installer, and updates through the family's update framework
+
+- **A per-user installer**, `folderredactor-setup.exe` (Inno Setup 6, no administrator rights, a Start menu entry),
+  around a one-folder build that starts faster than the one-file exe. The one-file `folderredactor.exe` stays the
+  portable download. `build_exe.bat` builds both, and the installer, with this repo's `.venv`; no UPX.
+- **Updates through the family's update framework** (redactor_common `docs/update-framework.md`): every build says
+  how it was put on the PC (the installer writes `windows-installer` beside the program, the one-file exe carries
+  `windows-exe`), and Help > Check for Updates installs the file the release's `update-manifest.json` names for that
+  channel, after checking its size and checksum; when it cannot, it says why instead of only offering the release
+  page. The installer includes the family's installer contract (start again after a silent update, wait for the
+  program to let go of its files).
+- **`--check-update` and `--update`** on the command line (`--release-tag vX`, `--result-file PATH`): what this copy
+  would do with a release, as JSON, or do it with no window. The release tool's gate asks the previous release this.
+- `pyproject.toml` holds the release tool's configuration (`python -m redactor_common.release publish`).
+
 ## 2026-11-08#02 -- redactor_common 2026-11-08-02
 
 - **redactor_common 2026-11-08-02** (was 2026-11-06-03), the family's one pin: the update framework (an update

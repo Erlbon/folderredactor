@@ -17,6 +17,15 @@ for music libraries (artists, albums, genres, moved here from the ɯP3 Redactor)
 from the Ʌideo Redactor), in the window and with the `notes` command. The Clean Up menu is shown greyed until it is
 built.
 
+## Installing and updating
+
+Two downloads, the same program: `folderredactor-setup.exe` installs it for you alone (no administrator rights, in
+your own programs folder, with a Start menu entry), and `folderredactor.exe` is one file to run from anywhere. Help >
+Check for Updates (or the once-a-day check, switched on in Tools > Preferences) installs a new version the way your
+copy came: the installed copy runs the new installer and starts again, the one file replaces itself. When it cannot,
+it says why and offers the release page. Settings, History and the crash log stay beside the program, so an update
+keeps them; uninstalling leaves them in the program folder too.
+
 ## Opening a library
 
 File > Open Library Folder (Ctrl+Shift+O), File > Recent, a folder dropped on the window, or a folder on the command
@@ -136,6 +145,9 @@ and `--output FILE`, and the ones that change something are a report or dry run 
 | --- | --- |
 | `-h`, `--help` | Help for the program or for one command. |
 | `--version` | The version (top level only). |
+| `--check-update [--release-tag vX]` | What this copy would do with the newest release (or release `vX`), as JSON: its update channel, the release, `install`, `page` or `none`, the file and the reason. Downloads and changes nothing. |
+| `--update [--release-tag vX]` | The update itself, with no window: download, check, install. |
+| `--result-file PATH` | With `--check-update`, `--update` or `--version`: also write the answer to PATH (the exe is a windowed program, so a script may not see its output). |
 
 ### notes
 

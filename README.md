@@ -23,8 +23,16 @@ python ../redactor-build-tools/devenv/venv_sync.py .   # this repo's own .venv a
 .venv\Scripts\python main.py --help       # the command line (one exe, see foldercli/)
 .venv\Scripts\python -m pytest            # tests/ (Qt runs offscreen), as the pre-push hook does
 .venv\Scripts\python bump_version.py      # with every code commit, plus a CHANGELOG.md entry
-build_exe.bat                             # dist\folderredactor.exe (Windows), built with the .venv
+build_exe.bat                             # dist\folderredactor.exe and dist\folderredactor-setup.exe (Windows, Inno
+                                          # Setup 6), built with the .venv
+.venv\Scripts\python -m redactor_common.release manifest   # dist\update-manifest.json from the built files
 ```
+
+Releases go through the family's update framework (redactor_common `docs/update-framework.md`): `pyproject.toml`'s
+`[tool.redactor-release]` says what is built and published, `installer/folderredactor.iss` includes the shared
+installer contract at its end, and each build declares its update channel (`folderredactor.spec`).
+`.venv\Scripts\python -m redactor_common.release publish` builds, publishes a pre-release, runs the update gate and only
+then makes it Latest. The first release on the framework needs `--first-framework-release`.
 
 After cloning, switch the hooks on once: `git config core.hooksPath .githooks` (pre-commit: staged files parse and
 hold no control characters; pre-push: the tests pass).

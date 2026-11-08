@@ -5,7 +5,8 @@ The Ⅎolder Redactor (`APP_NAME` "The \u2132older Redactor", Ⅎ = U+2132 TURNE
 ## Commands
 - Set up: `python ../redactor-build-tools/devenv/venv_sync.py .` makes this repo's own `.venv` at the redactor_common pin (never `pip install -r requirements.txt` into the shared Python: one repo's pin then breaks the others, 2026-11-04). Run: `.venv/Scripts/python main.py` (or `python main.py D:\Music` to open a library)
 - Test: `.venv/Scripts/python -m pytest`, as the pre-push hook does (tests in `tests/`, Qt offscreen)
-- Build exe: `build_exe.bat` (`folderredactor.spec`). It must be built on Windows.
+- Build exe: `build_exe.bat` (`folderredactor.spec`, `installer/folderredactor.iss`): the one-file exe and the per-user installer, with this repo's `.venv`. It must be built on Windows, with Inno Setup 6.
+- Release: `.venv/Scripts/python -m redactor_common.release publish` (`pyproject.toml` `[tool.redactor-release]`, the update framework; the first one needs `--first-framework-release`). Only when Erlend says so.
 - Bump version: `.venv/Scripts/python bump_version.py`
 - Hooks: `git config core.hooksPath .githooks` once per clone (pre-commit: staged files parse, no control characters; pre-push: the tests pass)
 

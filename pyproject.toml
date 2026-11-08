@@ -1,0 +1,18 @@
+# Only the release tool's configuration: the program is not installed as a package (requirements.txt and venv_sync.py make
+# the .venv, and venv_sync.py prefers requirements.txt, so it never installs this folder).
+
+# python -m redactor_common.release publish: build, manifest, pre-release, the update gate, then Latest
+# (redactor_common docs/update-framework.md). The first release on the framework needs --first-framework-release.
+[tool.redactor-release]
+app = "folderredactor"
+name = "The Ⅎolder Redactor"
+repo = "Erlbon/folderredactor"
+version_file = "core/version.py"
+build = ["build_exe.bat", "--no-pause"]                           # called by its full path, stdin closed
+exe = "folderredactor.exe"
+installer_app_id = "{EC5101A1-10C3-479D-9069-EF4B1DFF1A29}"     # installer\folderredactor.iss AppId (a test keeps them equal)
+title = "{name} v{build}"                                         # as the other Redactors' releases: "The ɯP3 Redactor v2026-10-30-01"
+
+[tool.redactor-release.packages]
+windows-installer = "dist/folderredactor-setup.exe"
+windows-exe = "dist/folderredactor.exe"
