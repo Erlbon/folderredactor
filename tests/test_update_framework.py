@@ -184,3 +184,39 @@ def test_the_update_command_line_answers_before_anything_else(tmp_path, monkeypa
     assert main.update_command(["--check-update", "--release-tag", "v2099-01-01-01"])
     assert main.update_command(["--update"])
     assert not main.update_command(["--version"]) and not main.update_command(["notes", "D:/Music"])
+
+
+@pytest.mark.parametrize("args", [
+    ["--check-update", "--release-tag", "v2099-01-01-01", "--result-file", "r.json"],   # what the release gate asks
+    ["--update", "--release-tag", "v2099-01-01-01", "--result-file", "r.json"],
+    ["--update"],
+    ["--check-update"],
+    ["--version", "--result-file", "v.txt"],
+])
+def test_the_update_flags_on_their_own_reach_the_update_command_line(args, monkeypatch):
+    import main
+    from redactor_common.core import update_cli
+
+    asked = []
+    monkeypatch.setattr(update_cli, "handle", lambda argv, *a, **kw: asked.append(argv) or 0)
+    monkeypatch.setattr(sys, "argv", ["folderredactor", *args])
+    assert main.main() == 0
+    assert asked == [args]
+
+
+@pytest.mark.parametrize("extra", [["--update"], ["--update", "--write"], ["--check-update"]])
+def test_notes_update_is_the_notes_commands_flag_not_the_program_update(extra, tmp_path, monkeypatch):
+    """`notes PATH --update` refreshes old notes (ABOUT.md); it must never be taken for the update framework's
+    --update (2026-11-08: it printed "GitHub lists no published release" and exited 2)."""
+    import main
+    import foldercli.main as cli_main
+    from redactor_common.core import update_cli
+
+    monkeypatch.setattr(update_cli, "handle", lambda *a, **kw: pytest.fail("the update framework answered a command"))
+    reached = []
+    monkeypatch.setattr(cli_main, "main", lambda argv: reached.append(list(argv)) or 0)
+    argv = ["notes", str(tmp_path), "--kind", "genre", *extra]
+    monkeypatch.setattr(sys, "argv", ["folderredactor", *argv])
+    assert main.main() == 0
+    assert reached == [argv]
+    assert not main.update_command(argv)

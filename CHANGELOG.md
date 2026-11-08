@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-08#04 -- `notes --update` refreshes notes again
+
+- **Fixed:** `folderredactor notes PATH --update` ran the program's own update check ("GitHub lists no published
+  release", exit 2) instead of refreshing the old notes, since 2026-11-08#03. The update flags (`--check-update`,
+  `--update`) now count only when no command name comes first; after `notes` they are the command's own options.
+  The release tool's calls (`--version`, `--check-update`, `--update`, each with `--release-tag` / `--result-file`)
+  are answered as before.
+
 ## 2026-11-08#03 -- An installer, and updates through the family's update framework
 
 - **A per-user installer**, `folderredactor-setup.exe` (Inno Setup 6, no administrator rights, a Start menu entry),

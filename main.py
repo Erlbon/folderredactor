@@ -11,14 +11,17 @@ import sys
 from core import crash_log
 from core.app_paths import asset_path
 from core.version import APP_NAME, APP_REPO_URL, APP_VERSION
-from foldercli import cli_requested
+from foldercli import COMMANDS, cli_requested
 from redactor_common.gui.app_bootstrap import run_app
 
 
 def update_command(args) -> bool:
     """Whether the family's update command line (redactor_common.core.update_cli) answers these arguments: --check-update
     and --update, and --version when it is asked for a --result-file (the release gate reads the bare build number from
-    there; the windowed exe has no console). A plain `folderredactor --version` stays the command line's."""
+    there; the windowed exe has no console). A plain `folderredactor --version` stays the command line's, and so does
+    every argument after a command name: `notes PATH --update` is the notes command's own flag (refresh old notes)."""
+    if args and args[0] in COMMANDS:
+        return False
     return "--check-update" in args or "--update" in args or ("--version" in args and "--result-file" in args)
 
 
