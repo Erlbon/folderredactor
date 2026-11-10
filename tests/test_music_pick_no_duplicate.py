@@ -51,74 +51,7 @@ def fetchers(both_sources=True, guessable=False):
     return Fetchers(mb=mb, wiki=wiki, discogs=DiscogsClient("t", fetch=discogs, throttle=Throttle(0)) if both_sources else None)
 
 
-def row_objects(tree):
-    return [tree.topLevelItem(i) for i in range(tree.topLevelItemCount())]
-
-
-def texts(tree):
-    return [tuple(tree.topLevelItem(i).text(c) for c in range(4)) for i in range(tree.topLevelItemCount())]
-
-
-def open_list(window, tmp_path, kinds="artist", discogs=True, guessable=False):
-    root = library(tmp_path)
-    window.settings.last_directory = str(root)
-    window.settings.include_subfolders = True
-    window._load_paths([root / "C" / "Cband 00"])
-    window.notes_fetchers = lambda: fetchers(discogs, guessable)
-    return root
-
-
-def scenario_in_list(window, root, body, kinds="artist"):
-    """Opens Create Notes on the library, waits for the list view, runs body(page)."""
-    seen = {}
-
-    def scenario():
-        yield from wait(lambda: scope_dialog() is not None, "the scope dialog")
-        dlg = scope_dialog()
-        next(r for r, p in dlg.radios if p == str(root)).click()
-        set_kinds(dlg, kinds)
-        click(dlg.continue_button)
-        yield from wait(lambda: review() is not None, "the review page")
-        page = review()
-        assert page.view == "list"
-        seen["result"] = body(page)
-        page.done(0)
-
-    drive(scenario, window.action_registry["create_notes"].trigger)
-    return seen["result"]
-
-
-def select_tie_row(page):
-    """Scrolls the tie artist's row into view and clicks it, like a person."""
-    tree = page.tree
-    index = next(i for i, it in enumerate(page.session.items) if it.proposal.folder.name == TIE)
-    row = next(r for r in row_objects(tree) if r.data(0, Qt.ItemDataRole.UserRole) == index)
-    tree.scrollToItem(row)
-    QApplication.processEvents()
-    rect = tree.visualItemRect(row)
-    QTest.mouseClick(tree.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(100, rect.center().y()))
-    QApplication.processEvents()
-    assert tree.currentItem() is row
-    return index, row
-
-
-def watch_rebuilds(page):
-    calls = []
-    real = page._fill_tree
-    page._fill_tree = lambda: (calls.append(1), real())[1]
-    return calls
-
-
-def snapshot(page):
-    tree = page.tree
-    return {"objects": row_objects(tree), "texts": texts(tree), "scroll": tree.verticalScrollBar().value(),
-            "folders": [str(i.proposal.folder) for i in page.session.items], "count": tree.topLevelItemCount()}
-
-
 # -- two services, one name: separate unless a fact agrees -------------------------------------------------------------
-
-
-
 
 
 def test_candidates_with_a_local_album_in_both_discographies_are_merged_and_the_note_says_why():
@@ -150,14 +83,5 @@ def test_picking_a_merged_candidate_builds_the_note_from_both_sources(tmp_path):
 
 
 # -- the rebuilds: in place ------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
 
 

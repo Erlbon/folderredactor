@@ -1,21 +1,15 @@
 # The Ⅎolder Redactor
 
-A tool for the folders of a media library, not for the files in them. It has two jobs:
+A tool for the folders of a media library, not for the files in them. It drafts the short Markdown notes that the
+Pluteus media server shows for a folder (`artist.md`, `album.md`, `series.md`, `about.md`), from the files' own tags and
+names and from MusicBrainz, Discogs, TMDB and Wikipedia. You judge every draft; only what you say yes to is written.
 
-1. **Folder notes.** It drafts the short Markdown notes that the Pluteus media server shows for a folder
-   (`artist.md`, `album.md`, `series.md`, `about.md`), from the files' own tags and names and from MusicBrainz,
-   Discogs, TMDB and Wikipedia. You review every draft and say yes or no; only a yes is written.
-2. **Folder-tree clean-up.** It checks a library's folder tree against that library's conventions (stray spaces,
-   release tags, year forms, numbering ...) and proposes renames. Again you say yes or no, and every rename can be
-   undone.
+What it writes into a library: `.md` files that explain a folder's contents, and nothing else. Its settings, caches and
+history live next to the program.
 
-What it writes into a library: `.md` files that explain a folder's contents, and nothing else. Its settings, caches,
-reports and history live next to the program.
-
-Part of the Redactor family (the ƎPUB, ɯP3, Ʌideo and ƆBZ Redactors). This is an early build: folder notes work
-for music libraries (artists, albums, genres, moved here from the ɯP3 Redactor) and video libraries (series and films,
-from the Ʌideo Redactor), in the window and with the `notes` command. The Clean Up menu is shown greyed until it is
-built.
+Part of the Redactor family (the ƎPUB, ɯP3, Ʌideo and ƆBZ Redactors). This is an early build: folder notes work for
+music libraries (artists, albums, genres, moved here from the ɯP3 Redactor) and video libraries (series and films, from
+the Ʌideo Redactor), in the window and with the `notes` command.
 
 ## Installing and updating
 
@@ -26,6 +20,25 @@ copy came: the installed copy runs the new installer and starts again, the one f
 it says why and offers the release page. Settings, History and the crash log stay beside the program, so an update
 keeps them; uninstalling leaves them in the program folder too.
 
+## The window
+
+On the left, the library's folders as a tree; on the right, the note of the folder you select, always open. A folder's
+children are listed when you open it, nothing more is read in the background, so a big library on a share opens at once.
+
+Each folder has a light, told apart by its shape as well as its colour:
+
+- ● green: the folder has a note (also one this program did not make: Pluteus shows it all the same)
+- ◐ amber: a draft is waiting for you, or the note was made by an older version and can be drafted again
+- ✎ green: a note you edited (here or in Pluteus); a lookup never touches it
+- ○ hollow grey: no note
+
+Letter folders (`H`, `A-C`, `0-9`) have no light: they never get a note. Under the tree, the **Local files** of the
+selected folder: the cover, the albums, the track list and the tags as the files carry them (music; View > Folder Panel
+hides it).
+
+The note pane shows the folder's draft if it has one, else the note in the folder, else "No note". Preview, Raw and
+Before / after (the old note against the new draft, when a draft replaces a note) switch at the top (Ctrl+1, 2, 3).
+
 ## Opening a library
 
 File > Open Library Folder (Ctrl+Shift+O), File > Recent, a folder dropped on the window, or a folder on the command
@@ -33,37 +46,49 @@ line (`folderredactor.exe D:\Music`).
 
 ## Folder notes
 
-Notes > Create Notes works out from the file names of the library you opened whether it is a music or a video library
-(when it cannot tell, it takes the kind you used last time, and the first time it asks). Then it asks which folder: the
-library you opened, the folder you used last time, or another one, and which notes to make.
+Select a folder and click **Look Up** (Notes > Look Up, Ctrl+L). What it looks up is set under Notes > Look Up Options:
+**This Folder and Below** looks at the folders under the selected one too, for the kinds of note ticked there (artists,
+albums, genres and collections; series, films); off, only the selected folder is looked up, as whatever it is. Look Up
+works out from the file names whether the folder holds music or video (when it cannot tell, it takes the library's
+kind or the kind you used last time, and the first time it asks).
 
-The review page is the same for both: one note at a time for a single folder (or one artist with its albums), a list
-with ticks for several. The list never jumps when you pick something: the row is built again where it is. Under the
-list a line says why a row cannot be ticked yet. Only what you say yes to is written, with `status: draft` in the note,
-and a folder that already has a note (`artist.md`, `author.md`, `series.md`, `album.md` or `about.md`, any letter case)
-is never touched.
+The lookup runs in the background: each folder's light turns amber as its draft arrives, and you can read and judge the
+first drafts while the rest are looked up. The line at the bottom says how far it is; Cancel stops after the folder in
+hand and keeps the drafts so far. F8 (Notes > Next Waiting Folder) goes to the next amber folder.
 
-A note this program (or the ɯP3 or Ʌideo Redactor) wrote in an older shape can be drafted again: tick "Also review
-notes made by an older version" in the folder question. Such a row says Update, shows Before / after, is never ticked by
-itself, and the old note goes to the Recycle Bin when you write the new one. A note you edited is never offered.
-(Notes > Refresh Old Notes is still greyed; the tick box is the way for now.)
+A confident draft gets a tick box, ticked. **Write N ticked notes** (Ctrl+Enter) writes the ticked ones; Enter in the
+tree writes the selected folder's draft and moves to the next one waiting. Notes are written with `status: draft` in
+them, and a folder that already has a note (`artist.md`, `author.md`, `series.md`, `album.md` or `about.md`, any letter
+case) is never touched. Edit > Undo takes back the last note written, when Tools > History is on.
+
+A note this program (or the ɯP3 or Ʌideo Redactor) wrote in an older shape can be drafted again: tick **Also Refresh
+Outdated Notes** under Look Up Options. Such a draft shows Before / after, is never ticked by itself, and the old note
+goes to the Recycle Bin when you write the new one. A note you edited is never offered.
+
+**Editing a note.** A note in a folder can be edited in the pane: Edit (F4), change the Raw text, Save. The old text goes
+to the Recycle Bin (on a network share without one the save is refused and the note stays as it was). From then on the
+note reads as edited by you, and Look Up leaves it alone.
+
+**When a draft is not settled** (uncertain, or nothing found), the **Match** strip opens above the note: the candidates
+found (double-click the right one, or select it and press Enter, to build the note from it) and the other ways to settle
+it, listed below for music. Once the draft can be written the strip folds away; click Match to open it again.
 
 ### Music
 
 An artist folder (album folders below it) gets an `artist.md`, an album folder (music files in it, or in CD1 / Disc 2
 folders) an `album.md`, a genre or collection folder (artist folders below it; `Various Artists`, `Soundtracks`; a
 folder whose name starts with `_`) an `about.md`. MP3, FLAC, M4A, Ogg and Opus files all count. Artist notes only are
-ticked at first ("What to create"); album notes are slower (about four requests each). After artist notes are written
-the page offers the album notes of those artists with one click.
+ticked at first (Look Up Options); album notes are slower (about four requests each). For the albums of artists you just
+wrote, select the artist and Look Up with Albums ticked.
 
 Each folder is looked up at MusicBrainz and Wikipedia, and at Discogs when you saved a Discogs token. A match is
 *confident* only when the albums in your folder are in that artist's discography and no other artist fits as well; two
-bands with one name, or a "Greatest Hits" anyone could have, stay uncertain. For an uncertain folder the page offers:
+bands with one name, or a "Greatest Hits" anyone could have, stay uncertain. For an uncertain folder the Match strip offers:
 the candidates found (with how many of your albums each holds), **Build this folder as** (artist, album, genre or
 collection, or skip it), **Look up by link** (paste the right MusicBrainz, Discogs, Wikipedia or Wikidata page; nothing
-is fetched from any other site), **Create a minimal note from the tags** (no online source, and it says so), and the
-**Local files** tab: the cover, the track list and the tags as the files carry them. **Tick best guesses** in the list
-ticks the uncertain folders whose top candidate holds one of your albums (still drafts, still only written on a click).
+is fetched from any other site), and **Create a minimal note from the tags** (no online source, and it says so); the
+Local files under the tree show what the folder holds. **Notes > Tick Best Guesses** ticks the uncertain folders whose
+top candidate holds one of your albums (still drafts, still only written on a click).
 A genre folder has a **Genres covered** box: edit it and look it up again.
 
 **Where pluteus finds the artists.** Every `about.md` this program writes says in its front matter how the folders below
@@ -72,7 +97,7 @@ it are arranged, down to the album: `layout: letter/artist/album` above letter f
 sit directly inside it (`6.2 - Compilations`). pluteus reads that line instead of opening every folder. A folder above
 the artists with a plain name such as `0 - Bands` (no genre to look up) gets a short `about.md` that says only that.
 Letter folders (`H`, `A-C`) still get no note. An `about.md` that is already there without the line, yours or ours, is
-offered with **Also review notes made by an older version** ticked: on your yes the one line is added to its front
+offered with **Also Refresh Outdated Notes** ticked: on your yes the one line is added to its front
 matter, every other line kept (the note as it was goes to the Recycle Bin).
 
 **Box sets.** A box whose albums sit in disc folders (`Tom Lehrer/The Remains of Tom Lehrer/Disc 1 - .../[1953] - Songs
@@ -97,7 +122,7 @@ The notes the Ʌideo Redactor already wrote count as this program's own: they ar
 
 ### Preferences
 
-Tools > Preferences > Create Notes switches the lookup cache (answers kept next to the program, so a second run is
+Tools > Preferences > Look Up switches the lookup cache (answers kept next to the program, so a second run is
 quick) and the Wikipedia introduction; Tools > Clear Lookup Cache forgets the saved answers. For music: ask Discogs for
 every artist (slower; off: only when MusicBrainz has no verified match), leave the singles out of a discography, and
 count the Norwegian number words that are everyday English words (en, to, tre, fire...) as numbers. "Log the review list for
@@ -108,7 +133,7 @@ Delete Log removes it.
 
 At its first start the program offers to share the Discogs token of the ɯP3 Redactor and the TMDB key of the Ʌideo
 Redactor with all the Redactors (see API keys below), if they are still saved in that one program only (they stay
-there too). File > Import from mp3redactor or videoredactor… offers that again, and also takes over their Create Notes
+there too). File > Import from mp3redactor or videoredactor… offers that again, and also takes over their notes
 settings (what to create, the Discogs and singles
 switches, the lookup cache and Wikipedia switches) and their saved lookup answers: point it at the folder the old
 program is in. It only fills in what is not set here; your choices in this program are never overwritten.
@@ -137,8 +162,8 @@ argument is a command name, it runs that command and the window never opens; wit
 open, the window starts as usual. `folderredactor --help` lists the commands and `folderredactor COMMAND --help`
 lists the options of one.
 
-The commands so far: `notes` (draft the folder notes of a music or video library; a report unless `--write`). The clean-up's
-`check`, `apply` and `undo` come with that job. Every command takes `--json` (one JSON document on stdout), `--quiet`
+The commands so far: `notes` (draft the folder notes of a music or video library; a report unless `--write`). Every
+command takes `--json` (one JSON document on stdout), `--quiet`
 and `--output FILE`, and the ones that change something are a report or dry run unless `--write`.
 
 | Option | Meaning |
@@ -153,7 +178,7 @@ and `--output FILE`, and the ones that change something are a report or dry run 
 
 `folderredactor notes PATH... [--media MEDIA] [-R] [--kind KIND] [--update] [--update-legacy] [--link FOLDER=URL] [--genres FOLDER=GENRE,GENRE] [--no-cache] [--no-wikipedia] [--write] [--include-uncertain] [-n] [--discogs WHEN] [--no-discogs] [--no-singles] [--norwegian-numbers] [--show-drafts]`
 
-Drafts the Markdown notes the Pluteus media server shows beside a folder, the same as Notes > Create Notes. **Music:**
+Drafts the Markdown notes the Pluteus media server shows beside a folder, the same as Notes > Look Up. **Music:**
 `artist.md` in an artist folder, `album.md` in an album folder, `about.md` in a genre or collection folder, from
 MusicBrainz, Wikipedia and (with your Discogs token under Tools > API Keys, or `DISCOGS_TOKEN`) Discogs, verified by the
 albums really in the folder. **Video:** `series.md` in a series folder and `about.md` in a film folder, from TMDB (your

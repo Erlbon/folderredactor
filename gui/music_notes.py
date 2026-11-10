@@ -1,44 +1,33 @@
 """
 gui/music_notes.py
 
-Notes > Create Notes... for a music library: the questions and the run (core/music/flow.py is the engine). The question
-"which folder, and what to create?" is redactor_common's NotesScopeDialog, the progress and the review page are
-redactor_common's run_create_notes / NotesReviewDialog, whose template is mp3redactor's page; this module says what is
-music's own (plan step 9): the kinds (artist, album, genre / collection), what a folder would get, the time hint, and the
-page's music extras as ReviewHooks: the level choice, the minimal note from the tags, Look up by link, the genres a genre
-folder covers, the Local files tab, Tick best guesses, 'Create the album notes for these artists too' and the opt-in
-troubleshooting log.
+What the window needs to know about music notes (core/music/flow.py is the engine): the kinds Look Up can be told to make,
+the music extras of the review controls (redactor_common's ReviewHooks: the level choice, the minimal note from the tags,
+Look up by link, the genres a genre folder covers, why a candidate cannot be used, best guesses, the opt-in troubleshooting
+log), the words when there is nothing to look up, and the engine as the window's lookup thread makes it. The window is
+gui/main_window.py; the Local files panel under the tree is gui/music_evidence_view.py.
 
-  scope_question(parent, ...)       the 'which folder?' dialog with the music words; returns (folder, kinds, outdated)
-  create_notes(parent, paths, ...)  scan, look up (progress + Cancel), open the review page; runs the album follow-up
-  music_hooks(engine, kinds)        the review page's music extras
+  KIND_CHECKS                       (kind, Look Up menu label), mp3redactor's order
+  music_hooks(engine)               the review controls' music extras (`engine` may be a stand-in that finds the engine late)
+  nothing_found_why(found)          the music words when a Look Up finds nothing to look up
+  make_engine(fetchers, cache)      the engine of one library, with the options of Preferences
 """
 
 from __future__ import annotations
 
-from typing import Callable, Optional
-
-from PyQt6.QtWidgets import QWidget
+from typing import Optional
 
 from core import notes_debug, notes_settings
-from core.music import scope as music_scope
-from core.music.flow import (
-    LEVEL_LOCAL_TAGS, Candidate, Fetchers, NotesEngine, Proposal, build_proposals, live_fetchers, scan, write_proposal,
-)
-from core.music.kinds import kinds_text, parse_kinds
+from core.music.flow import LEVEL_LOCAL_TAGS, Fetchers, NotesEngine, Proposal
 from core.music.level import SUGGEST_ALBUM, SUGGEST_ARTIST, SUGGEST_COLLECTION, SUGGEST_SKIP
 from core.music.link import LinkError, parse_link
-from core.music.local import ALL_KINDS, KIND_ALBUM, KIND_ARTIST, KIND_GENRE, LIBRARY_ROOT_MESSAGE
-from redactor_common.core.notes_scope import ScopeChoice
-from redactor_common.gui.notes_review_dialog import NotesReviewDialog, ReviewHooks, open_in_system
-from redactor_common.gui.notes_run import run_create_notes
-from redactor_common.gui.notes_scope_dialog import ask_scope
+from core.music.local import KIND_ALBUM, KIND_ARTIST, KIND_GENRE, LIBRARY_ROOT_MESSAGE
+from redactor_common.gui.notes_review_dialog import ReviewHooks
 
-TITLE = "Create Notes"
-KIND_CHECKS = (  # mp3redactor's words and order
-    (KIND_GENRE, "Genre / collection notes (fast: about one Wikipedia lookup per folder, no tags read)"),
-    (KIND_ARTIST, "Artist notes (about 5 requests each)"),
-    (KIND_ALBUM, "Album notes (slower: about 4 requests each)"),
+KIND_CHECKS = (  # mp3redactor's order; the words are Notes > Look Up Options entries
+    (KIND_GENRE, "&Genres and Collections (fast: about one Wikipedia lookup each)"),
+    (KIND_ARTIST, "&Artists (about 5 requests each)"),
+    (KIND_ALBUM, "A&lbums (slower: about 4 requests each)"),
 )
 CANDIDATE_COLUMNS = ("Name", "Details (year, country)", "Score", "Source", "Local albums found")
 DISCOGS_NOTE = "Discogs token not set: notes will be thinner (Tools > API Keys…)."
@@ -59,24 +48,6 @@ GENRE_LINK_ONLY = ("For a genre or collection folder paste the Wikipedia article
                    "(a link like https://en.wikipedia.org/wiki/Ska_punk).")
 RECYCLE_NOTE = ("The old note goes to the Recycle Bin. You can restore it from the Recycle Bin. On a network drive there is "
                 "no Recycle Bin: the update is refused and the old note stays.")
-FOLLOWUP_LABEL = "Create the album notes for these artists too"
-FOLLOWUP_TOOLTIP = "Closes this page and looks up only the albums of the artists whose notes were just written."
-
-
-# ---- the question -----------------------------------------------------------------------------------------------------
-
-def scope_question(
-    parent: QWidget, choices: list[ScopeChoice], include_subfolders: bool,
-    on_include_changed: Optional[Callable[[bool], None]] = None, start: str = "", kinds: str = "",
-) -> tuple[str, str, bool]:
-    """(folder, kinds, include_outdated); folder is "" when the person cancelled."""
-    return ask_scope(
-        parent, choices, include_subfolders, kind_checks=KIND_CHECKS, kinds=kinds or kinds_text(ALL_KINDS[:1]),
-        parse_kinds=parse_kinds, kinds_text=kinds_text, describe=music_scope.folder_info,
-        caption_of=music_scope.folder_caption, count=music_scope.count_targets, hint=music_scope.scope_hint,
-        on_include_changed=on_include_changed, start=start,
-        title="Create Notes: which folder?", heading="Create notes: which folder?",
-        browse_title="Create Notes: choose a library, genre, artist or album folder")
 
 
 # ---- the review page's music extras -------------------------------------------------------------------------------------
@@ -112,92 +83,33 @@ def _log(step: str, **fields) -> None:
     notes_debug.record(step, **fields)  # nothing happens while the log is off
 
 
-def music_hooks(engine: NotesEngine, kinds: tuple = (KIND_ARTIST,)) -> ReviewHooks:
-    from gui.music_evidence_view import LocalEvidenceView
-
-    offer_albums = tuple(kinds) == (KIND_ARTIST,)
+def music_hooks(engine) -> ReviewHooks:
+    """The music extras of the review controls. The Local files view is not among them: it sits under the tree."""
     return ReviewHooks(
         level_labels=LEVEL_LABELS, current_level_key=lambda p: _CURRENT_LEVEL_KEY.get(getattr(p, "level", ""), ""),
         skip_level=SUGGEST_SKIP, local_level=LEVEL_LOCAL_TAGS, local_label=LOCAL_LABEL, local_tooltip=LOCAL_TOOLTIP,
         can_make_local=lambda p: p.kind in (KIND_ARTIST, KIND_ALBUM) and p.note_kind in ("artist", "album"),
         link_placeholder=_link_placeholder, check_link=check_link, link_errors=(LinkError,), genres_of=_genres_of,
-        evidence_view=LocalEvidenceView,
-        evidence_applies=lambda p: p.kind in (KIND_ARTIST, KIND_ALBUM) and p.note_kind != "about",
-        best_guess=engine.best_guess, why_not=engine.why_cannot_choose,
-        followup_kind=KIND_ARTIST if offer_albums else "", followup_label=FOLLOWUP_LABEL, followup_tooltip=FOLLOWUP_TOOLTIP,
-        followup_question=(lambda n: f"{n} artist note{'' if n == 1 else 's'} written.\n\nCreate the album notes for "
-                                     f"{'this artist' if n == 1 else 'these artists'} too? (slower: one lookup per album)")
-        if offer_albums else None,
+        best_guess=lambda p: engine.best_guess(p), why_not=lambda p, c: engine.why_cannot_choose(p, c),
         log=_log if notes_debug.enabled() else None, recycle_note=RECYCLE_NOTE)
 
 
-# ---- the run ----------------------------------------------------------------------------------------------------------
+# ---- the engine --------------------------------------------------------------------------------------------------------
 
-def _label(target) -> str:
-    folder = target.folder
-    return f"{folder.parent.name} / {folder.name}" if target.kind == KIND_ALBUM else folder.name
-
-
-def _nothing_found_why(found) -> str:
-    wrong = found.wrong_level_message("tick it under 'What to create'")
+def nothing_found_why(found) -> str:
+    """The music words when a Look Up finds nothing to look up: a level that was not asked for, a library root ('' = the
+    usual words)."""
+    wrong = found.wrong_level_message("tick it under Notes > Look Up Options")
     if wrong:  # an album folder asked for artist notes only: say so, it is not a library root
         return wrong
     return LIBRARY_ROOT_MESSAGE if found.only_a_library_root else ""
 
 
-def _found_notes(found) -> list[str]:
-    if not found.groupings:
-        return []
-    return [f"{len(found.groupings)} alphabetical grouping folder(s) (A, B-C, 0-9...) skipped: no note, no proposal."]
-
-
-def left_alone_sentence(found) -> str:
-    """'N notes were left alone: edited by a person or not ours.' (and how many are already current)."""
-    left = sum(1 for x in found.skipped if x.state in ("edited", "foreign"))
-    current = sum(1 for x in found.skipped if x.state == "current")
-    return f"{left} notes were left alone: edited by a person or not ours." + (f" {current} are already current." if current else "")
-
-
-def create_notes(
-    parent: QWidget, paths: list, include_subfolders: bool, make_fetchers: Callable[[], Fetchers] = live_fetchers,
-    size_text: str = "", on_size: Optional[Callable[[str], None]] = None, open_path: Callable[[str], None] = open_in_system,
-    kinds: tuple = (KIND_ARTIST,), cache=None, include_outdated: bool = False, discogs_mode: Optional[str] = None,
-    singles: Optional[bool] = None,
-) -> Optional[NotesReviewDialog]:
-    """Scan `paths`, look every folder up under a cancellable progress dialog, then open the review page. 'Create the album
-    notes for these artists too' runs once more for those artists' albums. Returns the (closed) last dialog, or None when
-    there was nothing to review. The engine's options default to Preferences (core/music/settings.py)."""
-    from core import history
+def make_engine(fetchers: Fetchers, cache=None) -> NotesEngine:
+    """The engine of one library, with the options of Preferences (core/music/settings.py)."""
     from core.music import settings as music_settings
 
     options = music_settings.engine_options()
-    discogs_mode = discogs_mode or options["discogs_mode"]
-    singles = options["singles"] if singles is None else singles
     music_settings.apply_number_words()
-    kinds = parse_kinds(kinds)
-    fetchers = make_fetchers()
     fetchers.wikipedia = fetchers.wikipedia and notes_settings.wikipedia_enabled()
-    engine = NotesEngine(fetchers, cache=cache, discogs_mode=discogs_mode, singles=singles)
-    notes = [music_scope.kinds_sentence(kinds)] + ([DISCOGS_NOTE] if fetchers.discogs is None else [])
-
-    def rebuild(proposal: Proposal, candidate: Optional[Candidate], level: str = "", **extra) -> Proposal:
-        return engine.rebuild(proposal, candidate=candidate, level=level, **extra)
-
-    try:
-        dialog = run_create_notes(
-            parent, title=TITLE, scan=lambda: scan(paths, include_subfolders, kinds=kinds, include_outdated=include_outdated),
-            engine=engine, build=build_proposals, write_fn=write_proposal, label_for=_label,
-            nothing_found="No artist or album folders without a note were found.", intro_notes=notes,
-            owner_kinds=(KIND_ARTIST, KIND_GENRE), child_kind=KIND_ALBUM, size_text=size_text, on_size=on_size,
-            open_path=open_path, include_outdated=include_outdated, left_alone=left_alone_sentence,
-            candidate_columns=CANDIDATE_COLUMNS,
-            history_note="Recorded in Tools > History (it is switched on)." if history.history_enabled() else "",
-            hooks=music_hooks(engine, kinds), rebuild=rebuild, nothing_found_why=_nothing_found_why,
-            found_notes=_found_notes)
-    finally:
-        engine.close()
-    if dialog is not None and dialog.followup:  # 'Create the album notes for these artists too': only those artists' albums
-        return create_notes(parent, dialog.followup, True, make_fetchers, size_text, on_size, open_path,
-                            kinds=(KIND_ALBUM,), cache=cache, include_outdated=include_outdated,
-                            discogs_mode=discogs_mode, singles=singles)
-    return dialog
+    return NotesEngine(fetchers, cache=cache, discogs_mode=options["discogs_mode"], singles=options["singles"])

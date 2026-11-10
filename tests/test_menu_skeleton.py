@@ -1,5 +1,6 @@
-"""The family's menu skeleton on the real MainWindow: the headings of the plan in order, what each menu holds, the
-job menus greyed (disable, never hide), the lint, the command palette, File > Recent and opening a library."""
+"""The family's menu skeleton on the real MainWindow: the headings in order, what each menu holds (the window review of
+2026-11-10: notes only, no Clean Up), what is greyed until there is something to act on, the lint, the command palette,
+File > Recent and opening a library."""
 
 from PyQt6.QtCore import QMimeData, QPointF, Qt, QUrl
 from PyQt6.QtGui import QDropEvent, QKeySequence
@@ -16,28 +17,36 @@ def _labels(menu) -> list:
     return [a.text().replace("&", "") for a in menu.actions() if not a.isSeparator()]
 
 
-def test_headings_are_the_skeleton_with_notes_and_clean_up(window):
-    assert list(_menus(window)) == ["File", "Edit", "View", "Notes", "Clean Up", "Tools", "Help"]
+def test_headings_are_the_skeleton_with_notes(window):
+    assert list(_menus(window)) == ["File", "Edit", "View", "Notes", "Tools", "Help"]
 
 
 def test_each_menu_holds_what_the_plan_says(window):
     menus = _menus(window)
     assert _labels(menus["File"]) == ["Open Library Folder…", "Recent", "Import from mp3redactor or videoredactor…", "Exit"]
     assert _labels(menus["Edit"]) == ["Undo"]
-    assert _labels(menus["View"]) == ["Command Palette…"]
-    assert _labels(menus["Notes"]) == ["Create Notes…", "Refresh Old Notes…", "Switch View"]
-    assert _labels(menus["Clean Up"]) == ["Check Folder Tree…", "Open Check Report…", "Apply Decisions…"]
+    assert _labels(menus["View"]) == ["Command Palette…", "Folder Panel", "Preview", "Raw Text", "Before / After"]
+    assert _labels(menus["Notes"]) == ["Look Up", "Look Up Options", "Cancel Look Up", "Write Ticked Notes",
+                                       "Write This Note", "Next Waiting Folder", "Tick All Confident", "Tick Best Guesses",
+                                       "Untick All", "Edit Note"]
     assert _labels(menus["Tools"]) == ["Preferences…", "API Keys…", "Clear Lookup Cache", "History…"]
     assert _labels(menus["Help"]) == ["Changelog…", "Credits…", "Check for Updates…", f"About {APP_NAME}"]
 
 
-def test_the_jobs_not_built_yet_are_greyed_not_hidden(window):
+def test_what_needs_a_library_or_a_draft_is_greyed_not_hidden(window, tmp_path):
     registry = window.actions_by_key
-    for key in ("refresh_old_notes", "switch_view", "check_folder_tree", "open_check_report", "apply_decisions", "undo"):
+    for key in ("look_up", "cancel_look_up", "write_ticked", "write_this", "edit_note"):
         assert key in registry and not registry[key].isEnabled(), key
-    for key in ("open_library_folder", "create_notes", "clear_lookup_cache", "api_keys", "history", "preferences", "about",
-                "command_palette"):
+    for key in ("open_library_folder", "clear_lookup_cache", "api_keys", "history", "preferences", "about",
+                "command_palette", "undo", "next_waiting", "tick_confident", "tick_guesses", "untick_all"):
         assert registry[key].isEnabled(), key
+    window.open_library_folder(str(tmp_path))
+    assert registry["look_up"].isEnabled() and window.look_up_button.isEnabled()
+
+
+def test_command_palette_in_the_menu_opens_the_palette_and_says_nothing_else(window):
+    window.actions_by_key["command_palette"].trigger()
+    assert "Not built yet" not in window.status_bar.currentMessage()
 
 
 # Violations the lint reports on purpose: the plan's label "Open Library Folder" on the family's Open Folder key.
@@ -66,14 +75,14 @@ def test_command_palette_is_on_ctrl_k_and_finds_the_actions(window):
     action = window.actions_by_key["command_palette"]
     assert action.shortcut() == QKeySequence("Ctrl+K")
     titles = [c.title for c in collect_commands(window, window.actions_by_key)]
-    assert "API Keys" in titles and "Open Library Folder" in titles and "Check Folder Tree" in titles
+    assert "API Keys" in titles and "Open Library Folder" in titles and "Look Up" in titles
 
 
 def test_open_library_folder_shows_it_and_remembers_it(window, tmp_path):
     library = tmp_path / "Music"
     library.mkdir()
     assert window.open_library_folder(str(library))
-    assert window.library_folder == str(library) and str(library) in window.folder_label.text()
+    assert window.library_folder == str(library) and window.tree.root == str(library)
     assert settings.recent_folders() == [str(library)]
     window._fill_recent_menu()
     assert str(library) in _labels(window.recent_menu)[0]

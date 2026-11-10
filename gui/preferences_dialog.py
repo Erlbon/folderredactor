@@ -2,7 +2,7 @@
 gui/preferences_dialog.py
 
 Tools > Preferences. For now one page's worth: History (record what this program writes, off by default, with a
-button that deletes what was recorded), Create Notes (keep the lookup answers on disk, a Wikipedia introduction) and
+button that deletes what was recorded), Look Up (keep the lookup answers on disk, a Wikipedia introduction) and
 the daily update check. The clean-up settings join with their steps.
 """
 
@@ -42,7 +42,7 @@ class PreferencesDialog(OwnedDialog):
         box_layout.addLayout(row)
         layout.addWidget(box)
 
-        notes_box = QGroupBox("Create Notes")
+        notes_box = QGroupBox("Look Up")
         notes_layout = QVBoxLayout(notes_box)
         self.notes_cache_check = QCheckBox("Keep the answers of earlier lookups, so a second run is quick")
         self.notes_cache_check.setToolTip("Kept next to the program, never in a library. Tools > Clear Lookup Cache "
@@ -67,7 +67,7 @@ class PreferencesDialog(OwnedDialog):
         notes_layout.addLayout(debug_row)
         layout.addWidget(notes_box)
 
-        music_box = QGroupBox("Create Notes: music")
+        music_box = QGroupBox("Look Up: music")
         music_layout = QVBoxLayout(music_box)
         self.discogs_always_check = QCheckBox("Ask Discogs for every artist (slower; off: only when MusicBrainz has no "
                                               "verified match)")

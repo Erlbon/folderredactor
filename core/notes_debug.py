@@ -1,7 +1,7 @@
 """
-core/notes_debug.py -- a troubleshooting log for the Create Notes review list, OFF unless asked for.
+core/notes_debug.py -- a troubleshooting log for the review of the drafts, OFF unless asked for.
 
-On when the environment variable FOLDERREDACTOR_NOTES_DEBUG=1 is set, or when Preferences > Create Notes > "Log the review
+On when the environment variable FOLDERREDACTOR_NOTES_DEBUG=1 is set, or when Preferences > Look Up > "Log the review
 list for troubleshooting" is ticked ([notes] debug_log, off by default). It writes `folderredactor_notes_debug.log` next to
 the settings file and
 records only: what happened (a step name), how many rows the list has, the scroll values, which row is current (its index) and

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-11-10#01 -- One window: the library tree and the note pane
+
+The window review of 2026-11-10 (`docs/ui-review-2026-11-10.md`), as Erlend answered it.
+
+- **No separate notes window any more.** The library is a tree on the left; the note of the selected folder is
+  always open on the right. The "which folder?" question, the locked progress window, the review window with its two
+  views and the summary boxes are gone.
+- **A light on every folder**, told apart by shape as well as colour: ● green a note, ◐ amber a draft waiting (or an
+  outdated note of ours), ✎ green a note you edited, ○ hollow grey no note. Letter folders get none. A folder's
+  children are listed when it is opened, and the note states are read by a background thread: no walk of the library.
+- **Look Up** (Notes > Look Up, Ctrl+L) works on the selected folder: on its own as whatever it is, or with This
+  Folder and Below for the kinds ticked under Look Up Options (also: Also Refresh Outdated Notes). It runs in the
+  background; each draft lands in the tree as it is ready and can be judged while the rest are looked up. The bottom
+  line says how far it is, with Cancel. Music or video is told from the selected folder's files.
+- **The note pane** shows the folder's draft, else its note on disk, else "No note"; Preview / Raw / Before-after
+  switch at the top (Ctrl+1/2/3) and stay put from folder to folder. For a draft that is not settled the **Match** strip
+  opens above the note (candidates: double-click or Enter builds the note; level, link, minimal note from the tags,
+  genres); it folds away once the draft can be written.
+- **Local files** (cover, albums, tracks, tags) moved under the tree (View > Folder Panel).
+- **Writing:** tick boxes in the tree (confident drafts come ticked), one Write N ticked notes button (Ctrl+Enter),
+  Enter in the tree writes the selected draft and goes to the next one waiting, F8 goes to the next waiting folder.
+  Tick All Confident, Tick Best Guesses and Untick All are in the Notes menu. The "replace an older note?" question
+  stays; the summary box went to the status bar.
+- **Edit a note in the pane** (Edit, F4): Save writes it while the note on disk is still what was read, the old text to
+  the Recycle Bin; it then reads as edited by you and Look Up leaves it alone. Moving away with unsaved changes asks.
+- **Edit > Undo** takes back the last note written or saved here (with Tools > History on).
+- **The Clean Up menu is gone:** this program writes folder notes and nothing else (the folder-tree clean-up of the
+  first plan is dropped). Notes > Refresh Old Notes and Switch View went with the old window; View > Command Palette no
+  longer also says "not built yet".
+- Tools > Preferences: the Create Notes groups are called Look Up.
+
 ## 2026-11-08#05 -- The first release (v0.1)
 
 - **Release notes of their own** (`docs/releases/v<build>.md`, named in `pyproject.toml`): the release tool takes them

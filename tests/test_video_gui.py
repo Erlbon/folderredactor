@@ -1,43 +1,36 @@
-"""Notes > Create Notes... on a video library through the REAL main window: real folders of video files, the real engine
-and the real write function, recorded-shape TMDB / Wikipedia replies as the network (nothing reaches the internet), the
-dialogs driven by their widgets with QTest clicks. The script is a generator stepped by a timer, so the modal dialogs can be
-driven. (Moved from videoredactor with the notes, plan step 5; the `window` fixture is conftest's.)"""
-
-from pathlib import Path
+"""The window on a VIDEO library (window review 2026-11-10): real folders of video files, the real engine and the real write
+function, recorded-shape TMDB / Wikipedia replies as the network (nothing reaches the internet). Look Up on the selected
+folder, the drafts in the tree, a pick in the Match strip, the one write button. (Moved from videoredactor with the notes,
+plan step 5; the `window` fixture is conftest's.)"""
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFileDialog
 
 from core import notes_settings
-from core.video import settings as video_settings
-from gui.video_notes import folder_caption, folder_info, scope_candidates, scope_hint, title_folders
-from tests.notes_gui_helpers import Script, boxes, click, review, run, scope, wait  # noqa: F401 -- boxes: a fixture
+from gui.lights import LIGHT_NOTE, LIGHT_WAITING
+from tests.notes_gui_helpers import (  # noqa: F401 -- boxes: a fixture
+    boxes, click, item, light, look_up, open_library, pump, select, tick_box, wait_rebuilt,
+)
 from tests.video_helpers import BREAKING_BAD, fake_fetchers, hit, make_movie, make_series, touch
 
 
-def test_a_single_series_opens_one_at_a_time_and_write_note_writes_series_md(window, monkeypatch, tmp_path, boxes):
+def test_a_series_is_looked_up_shown_in_the_pane_and_written(window, tmp_path, boxes):
     library = tmp_path / "Library"
     show = make_series(library)
-
-    def scenario():
-        yield from wait(lambda: review() is not None, "review page")
-        dlg = review()
-        assert dlg.view == "one" and dlg.header_label.text() == "Create notes  1 of 1"
-        assert dlg.one_panel.path_label.text() == str(show) and dlg.one_panel.badge.text() == "Confident"
-        assert dlg.one_panel.kind_label.text().startswith("Note: series.md")
-        assert "It ran for five seasons." in dlg.one_panel.preview.toPlainText()
-        assert dlg.one_panel.raw.toPlainText().startswith("---\ntitle: Breaking Bad")
-        assert "Looked up: series and film notes." in dlg.banner_label.text() and "Looked up 1 folder" in dlg.banner_label.text()
-        expected = dlg.session.items[0].proposal.note_text
-        click(dlg.write_button)
-        yield from wait(lambda: review() is None, "closed after the last note", 10)
-        assert (show / "series.md").read_text(encoding="utf-8") == expected.replace("\r\n", "\n").rstrip("\n") + "\n"
-        assert "status: draft" in expected.split("---")[1]
-
-    run(window, monkeypatch, library, fake_fetchers(), scenario)
-    assert any("Written: 1" in text for _title, text in boxes)
-    assert notes_settings.last_folder() == str(library) and video_settings.kinds() == ("series", "movie")
+    look_up(window, library, fake_fetchers())
+    proposal = item(window, show).proposal
+    assert proposal.writable and light(window, show) == LIGHT_WAITING and tick_box(window, show) is True
+    select(window, show)
+    pane = window.pane
+    assert pane.path_label.text() == str(show) and pane.badge.text() == "Confident"
+    assert pane.state_label.text().startswith("series.md: draft")
+    assert "It ran for five seasons." in pane.preview.toPlainText()
+    assert pane.raw.toPlainText().startswith("---\ntitle: Breaking Bad")
+    click(window.write_button)
+    pump(lambda: window.tree.note_state(str(show))[1] != "", "the written note's state")
+    assert (show / "series.md").read_text(encoding="utf-8") == proposal.note_text.replace("\r\n", "\n").rstrip("\n") + "\n"
+    assert "status: draft" in proposal.note_text.split("---")[1] and light(window, show) == LIGHT_NOTE
+    assert notes_settings.last_folder() == str(library) and notes_settings.last_media() == "video"
 
 
 def multi_fetchers():
@@ -49,137 +42,65 @@ def multi_fetchers():
                                      (r"/tv/99\?", details(99, 2017)), (r"/tv/100\?", details(100, 2019))])
 
 
-def test_several_folders_open_the_list_with_the_tick_rules_a_pick_and_a_write(window, monkeypatch, tmp_path, boxes):
-    show = make_series(tmp_path / "Library")
-    movie = make_movie(tmp_path / "Library")
+def test_several_folders_the_tick_rules_a_pick_in_the_strip_and_a_blocked_write(window, tmp_path, boxes):
+    library = tmp_path / "Library"
+    show = make_series(library)
+    movie = make_movie(library)
     for episode in (1, 2):
-        touch(tmp_path / "Library" / "Dark" / f"Dark.S01E0{episode}.mkv")  # two TMDB titles are called Dark
-
-    def scenario():
-        yield from wait(lambda: review() is not None, "review page")
-        dlg = review()
-        s = dlg.session
-        assert dlg.view == "list"
-        rows = {dlg.tree.topLevelItem(i).text(0).replace("/", "\\").split("\\")[-1]: dlg.tree.topLevelItem(i)
-                for i in range(dlg.tree.topLevelItemCount())}  # the folder name, with either kind of slash
-        assert set(rows) == {show.name, movie.name, "Dark"}
-        assert rows[show.name].checkState(0) == Qt.CheckState.Checked and rows[movie.name].checkState(0) == Qt.CheckState.Checked
-        dark = rows["Dark"]
-        assert not (dark.flags() & Qt.ItemFlag.ItemIsUserCheckable) and dark.checkState(0) != Qt.CheckState.Checked
-        dark.setCheckState(0, Qt.CheckState.Checked)
-        assert not s.items[dark.data(0, Qt.ItemDataRole.UserRole)].ticked
-        # the uncertain one: pick the candidate, it becomes confident and ticked
-        dlg.tree.setCurrentItem(dark)
-        i = dark.data(0, Qt.ItemDataRole.UserRole)
-        assert s.items[i].proposal.confidence.value == "uncertain" and dlg.list_panel.candidate_table.rowCount() == 2
-        click(dlg.list_panel.candidate_button)
-        yield from wait(lambda: s.items[i].proposal.confidence.value == "confident", "the rebuilt proposal")
-        assert s.items[i].ticked
-        # an existing note that appears after the scan blocks its write and is never touched
-        blocker = show / "Series.MD"
-        blocker.write_text("mine\n", encoding="utf-8")
-        n = len(s.ticked_pending())
-        click(dlg.write_ticked_button)
-        assert blocker.read_text(encoding="utf-8") == "mine\n"  # untouched (on a case-insensitive disk it is series.md too)
-        assert (movie / "about.md").is_file()
-        assert f"Written: {n - 1}" in dlg.last_summary and "Blocked by an existing note: 1" in dlg.last_summary
-        dlg.done(0)
-
-    run(window, monkeypatch, tmp_path / "Library", multi_fetchers(), scenario)
+        touch(library / "Dark" / f"Dark.S01E0{episode}.mkv")  # two TMDB titles are called Dark
+    dark = library / "Dark"
+    look_up(window, library, multi_fetchers())
+    assert tick_box(window, show) is True and tick_box(window, movie) is True
+    assert tick_box(window, dark) is None and not item(window, dark).ticked  # uncertain: no tick box at all
+    select(window, dark)
+    strip = window.pane.strip
+    assert window.pane.strip_holder.isVisibleTo(window.pane) and strip.candidate_table.rowCount() == 2
+    strip.candidate_table.selectRow(0)
+    strip.candidate_table.activated.emit(strip.candidate_table.currentIndex())  # double-click / Enter builds it
+    wait_rebuilt(window)
+    assert item(window, dark).proposal.confidence.value == "confident" and tick_box(window, dark) is True
+    blocker = show / "Series.MD"  # an existing note that appears after the lookup blocks its write, never touched
+    blocker.write_text("mine\n", encoding="utf-8")
+    window.actions_by_key["write_ticked"].trigger()
+    assert blocker.read_text(encoding="utf-8") == "mine\n" and (movie / "about.md").is_file()
+    assert boxes.said("Not written:") and "Wrote 2 notes." in window.status_bar.currentMessage()
 
 
 def test_without_a_tmdb_key_it_says_so_and_looks_nothing_up(window, monkeypatch, tmp_path, boxes):
-    make_series(tmp_path / "Library")
+    library = tmp_path / "Library"
+    make_series(library)
     from core.video.flow import Fetchers
 
     fetchers = Fetchers(tmdb=lambda r: pytest.fail("no request without a key"), key=None)
     monkeypatch.setattr("gui.video_notes.get_api_key", lambda: None)
     monkeypatch.setattr("core.video.tmdb.get_api_key", lambda: None)
-
-    def scenario():
-        yield from wait(lambda: any("API key" in text for _t, text in boxes), "the key message")
-
-    run(window, monkeypatch, tmp_path / "Library", fetchers, scenario, must_finish=False)
-    assert review() is None and any("API key" in text for _t, text in boxes)
+    look_up(window, library, fetchers)
+    assert boxes.said("API key") and not window.session.items
 
 
-def test_nothing_to_write_a_note_for_says_why(window, monkeypatch, tmp_path, boxes):
-    show = make_series(tmp_path / "Library")
-    (show / "series.md").write_text("mine\n", encoding="utf-8")
-
-    def scenario():
-        yield from wait(lambda: any("No series or film folders without a note" in text for _t, text in boxes), "the message")
-
-    run(window, monkeypatch, tmp_path / "Library", fake_fetchers(), scenario, must_finish=False)
-    assert any("No series or film folders without a note" in text and "1 folder(s) already have a note" in text for _t, text in boxes)
-
-
-def test_the_scope_question_shows_what_each_folder_would_get_and_the_kinds_are_remembered(window, monkeypatch, tmp_path, boxes):
-    make_series(tmp_path / "Library")
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: str(tmp_path / "Library")))
-    notes_settings.set_last_media("video")  # no library open: the kind used last time (an open one would be a choice itself)
-    window.notes_fetchers = lambda: fake_fetchers()
-
-    def steps():
-        yield from wait(lambda: scope() is not None, "the scope dialog")
-        dialog = scope()
-        dialog.other_radio.click()
-        yield from wait(lambda: "library folder" in dialog.other_label.text(), "the caption of the picked folder")
-        assert "1 series and 0 film folders below" in dialog.other_label.text()
-        dialog.kind_boxes["movie"].setChecked(False)
-        click(dialog.continue_button)
-        yield from wait(lambda: review() is not None, "review page")
-        assert "series notes only" in review().banner_label.text()
-        review().done(0)
-
-    script = Script(steps())
-    window.actions_by_key["create_notes"].trigger()
-    script.timer.stop()
-    assert script.error == "", script.error
-    assert video_settings.kinds() == ("series",)
-
-
-# ---- what a folder is, in words ---------------------------------------------------------------------------------------
-
-def test_a_file_in_a_season_folder_belongs_to_its_series_and_each_folder_is_listed_once(tmp_path):
-    show = make_series(tmp_path)
-    movie = make_movie(tmp_path)
-    files = [show / "Season 1" / "Breaking.Bad.S01E01.720p.mkv", show / "Season 2" / "Breaking.Bad.S02E01.720p.mkv",
-             movie / "The.Matrix.1999.1080p.mkv"]
-    assert title_folders(files) == [show, movie]
-
-
-def test_the_scope_candidates_are_the_opened_folder_the_selection_one_level_up_and_the_last_folder(tmp_path):
+def test_nothing_to_look_up_says_why_in_the_window(window, tmp_path, boxes):
     library = tmp_path / "Library"
     show = make_series(library)
-    last = tmp_path / "Elsewhere"
-    last.mkdir()
-    loaded = [str(show / "Season 1" / "Breaking.Bad.S01E01.720p.mkv")]
-    candidates = scope_candidates(loaded, loaded, str(show), str(last))
-    assert [(Path(p).name, caption, default) for p, caption, default in candidates] == [
-        (show.name, "the folder you opened: the loaded file is in it", False),
-        (show.name, "the series or film of the selected files", True),
-        ("Library", "one level up: also the other folders next to it", False),
-        ("Elsewhere", "the folder you used last time", False),
-    ]
+    (show / "series.md").write_text("mine\n", encoding="utf-8")
+    look_up(window, library, fake_fetchers())
+    assert "Nothing to look up in this folder or below: 1 folder(s) already have a note." in window.progress_label.text()
+    assert not boxes
 
 
-def test_what_a_folder_would_get_in_words(tmp_path):
-    show = make_series(tmp_path / "Library")
-    movie = make_movie(tmp_path / "Library")
-    both = "series,movie"
-    assert folder_caption(folder_info(str(show)), show.name, both) == "would get a series note: Breaking Bad"
-    assert folder_caption(folder_info(str(movie)), movie.name, both) == "would get a film note: The Matrix"
-    assert folder_caption(folder_info(str(show)), show.name, "movie").startswith("a series folder (series notes are not ticked")
-    assert folder_caption(folder_info(str(tmp_path / "Library")), "Library", both) == (
-        "a library folder: the 1 series and 1 film folders below get their own notes")
-    (movie / "about.md").write_text("mine\n", encoding="utf-8")
-    assert folder_caption(folder_info(str(movie)), movie.name, both) == "already has about.md: left alone"
-    (tmp_path / "Empty").mkdir()
-    assert folder_caption(folder_info(str(tmp_path / "Empty")), "Empty", both).startswith("nothing to write a note for here")
+def test_the_drafts_of_a_library_are_dropped_when_another_opens_asked_first_when_ticked(window, tmp_path, boxes):
+    library, other = tmp_path / "Library", tmp_path / "Other"
+    make_series(library)
+    other.mkdir()
+    look_up(window, library, fake_fetchers())
+    assert not window.open_library_folder(str(other))  # 1 ticked, answered No
+    assert boxes.said("1 ticked note has not been written") and window.session.items
+    boxes.yes.append("ticked note")
+    assert window.open_library_folder(str(other)) and not window.session.items
 
 
-def test_only_a_big_scope_gets_a_time_hint():
-    assert scope_hint((10, 10), "series,movie") == "" and scope_hint(None, "series") == ""
-    assert "About 300 folders: roughly" in scope_hint((200, 100), "series,movie")
-    assert scope_hint((50, 400), "series") == ""  # only the series are counted when only series are ticked
+def test_the_tree_offers_check_boxes_only_where_a_draft_can_be_written(window, tmp_path, boxes):
+    library = tmp_path / "Library"
+    make_series(library)
+    open_library(window, library)
+    row = window.tree.item_for(library / "Breaking Bad (2008)")
+    assert not (row.flags() & Qt.ItemFlag.ItemIsUserCheckable)

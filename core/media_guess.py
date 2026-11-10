@@ -1,7 +1,7 @@
 """
 core/media_guess.py
 
-Is a library folder music or video? Notes > Create Notes asks the right questions only once it knows (music: artist /
+Is a library folder music or video? Notes > Look Up asks the right questions only once it knows (music: artist /
 album / genre notes; video: series / film notes). A quick, bounded look at the file names (no file is opened): the
 first MAX_FILES files found in a breadth-first walk, at most MAX_DEPTH folders down, counted by extension. The kind with
 clearly more files wins; a mix too close to call, or nothing at all, is '' (the window then asks).

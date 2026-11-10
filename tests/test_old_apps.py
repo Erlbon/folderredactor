@@ -121,4 +121,4 @@ def test_opening_a_library_says_what_kind_it_is(window, tmp_path):
 
     ultravox_library(tmp_path)
     window.open_library_folder(str(tmp_path))
-    assert window.library_media == "music" and "(a music library)" in window.folder_label.text()
+    assert window.library_media == "music" and "(a music library)" in window.status_bar.currentMessage()

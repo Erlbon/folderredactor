@@ -146,4 +146,5 @@ def window(qapp):
     win = MainWindow()
     yield win
     win.close()
+    win.shutdown()  # a close answered No (ticked drafts) leaves the threads running: never delete a running QThread
     win.deleteLater()

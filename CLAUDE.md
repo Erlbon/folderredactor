@@ -1,6 +1,6 @@
 # folderredactor
 
-The Ⅎolder Redactor (`APP_NAME` "The \u2132older Redactor", Ⅎ = U+2132 TURNED CAPITAL F): a PyQt6 Windows desktop tool for the folders of a media library, with two jobs: drafting the Markdown folder notes Pluteus shows (moved out of mp3redactor and videoredactor), and checking a library's folder tree against its conventions with yes/no renames (ideas from comic-checker, written fresh). Part of the Redactor family; shared code lives in [redactor_common](https://github.com/Erlbon/redactor_common), pinned by tag in `requirements.txt`. The plan: `C:\Temp\Claude\notes-app-plan\plan.md`.
+The Ⅎolder Redactor (`APP_NAME` "The \u2132older Redactor", Ⅎ = U+2132 TURNED CAPITAL F): a PyQt6 Windows desktop tool for the folders of a media library. It drafts the Markdown folder notes Pluteus shows (moved out of mp3redactor and videoredactor), and that is all it does: the folder-tree clean-up of the first plan was dropped (Erlend, window review 2026-11-10, `docs/ui-review-2026-11-10.md`). The window is the library as a tree with a note light per folder, and the note pane always open beside it; no separate notes window. Part of the Redactor family; shared code lives in [redactor_common](https://github.com/Erlbon/redactor_common), pinned by tag in `requirements.txt`. The plan: `C:\Temp\Claude\notes-app-plan\plan.md`.
 
 ## Commands
 - Set up: `python ../redactor-build-tools/devenv/venv_sync.py .` makes this repo's own `.venv` at the redactor_common pin (never `pip install -r requirements.txt` into the shared Python: one repo's pin then breaks the others, 2026-11-04). Run: `.venv/Scripts/python main.py` (or `python main.py D:\Music` to open a library)
@@ -11,10 +11,11 @@ The Ⅎolder Redactor (`APP_NAME` "The \u2132older Redactor", Ⅎ = U+2132 TURNE
 - Hooks: `git config core.hooksPath .githooks` once per clone (pre-commit: staged files parse, no control characters; pre-push: the tests pass)
 
 ## Domain notes
-- **Into a library this app writes `.md` folder notes and nothing else.** No settings, cache, report, log, backup, marker or index in a library tree: they live next to the exe (`core/app_paths.py`) or where `--output` points. The clean-up's renames change names, they add nothing.
-- Nothing is written without a yes: notes are reviewed (shared `NotesReviewDialog`), renames are reviewed (Renames tab), and both are undoable from Tools > History. History is opt-in (off by default).
+- **Into a library this app writes `.md` folder notes and nothing else.** No settings, cache, report, log, backup, marker or index in a library tree: they live next to the exe (`core/app_paths.py`) or where `--output` points.
+- Nothing is written without a yes: a draft is written only from a tick and Write, Enter on it in the tree, or Save after an edit; everything written is undoable from Tools > History (Edit > Undo for the last one). History is opt-in (off by default).
 - The lookup clients are redactor_common's `core/lookups/` (MusicBrainz, Discogs, TMDB, release names, folder covers) and `core/wikipedia.py`; `core/__init__.py` configures them with this app's User-Agent and key store (`core/api_keys.py`, app name `folderredactor`).
 - The API keys are the Redactor family's SHARED keys (plan D25, 2026-11-06): redactor_common's `secret_store.get_key` / `set_key` (`<name>@redactor/shared`; this app's own old entry is only the fallback), `SecretField(shared=True)` in Tools > API Keys. A new key is added to `secret_store.FAMILY_KEYS` in redactor_common first.
+- Look Up shows its progress in the window's bottom line, with Cancel, not in a progress dialog: the window stays usable while it runs (window review 2026-11-10, card 2, Erlend's yes). That is the one approved exception to family convention 3 below; every other slow step still gets a dialog.
 - Write `APP_NAME`'s turned F as the escape `"\u2132"` in code, never pasted through a heredoc or a patch script.
 - Every new CLI command goes into `foldercli.COMMANDS` and the "Command line" section of ABOUT.md (tests/test_cli.py checks both).
 

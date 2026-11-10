@@ -1,7 +1,7 @@
 """
 core/notes_settings.py
 
-What Notes > Create Notes remembers for every media type (the settings file next to the exe) and where its lookup
+What Notes > Look Up remembers for every media type (the settings file next to the exe) and where its lookup
 cache lives. Small on purpose: the window, the command line and the tests all go through these functions. What one
 media type adds is its own module (core/video/settings.py: [notes.video]).
 

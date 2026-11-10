@@ -1,67 +1,95 @@
-"""Driving Notes > Create Notes through the REAL main window, for the music and the video window-flow tests: the modal
-dialogs (the folder question, the review page, the message boxes) are stepped by a generator on a timer, so a test can
-click their widgets the way a person does."""
+"""Driving the REAL main window for the music and the video window-flow tests: open a library, select a folder in the tree,
+Notes > Look Up with the recorded replies as the network, and wait (pumping events) until the lookup thread is done. Message
+boxes are answered at once and kept (the `boxes` fixture)."""
 
 from __future__ import annotations
 
 import time
-import traceback
+from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
-
-from redactor_common.gui.notes_review_dialog import NotesReviewDialog
-from redactor_common.gui.notes_scope_dialog import NotesScopeDialog
+from PyQt6.QtWidgets import QApplication, QMessageBox
 
 
-class Script:
-    def __init__(self, generator):
-        self.gen, self.error, self.done = generator, "", False
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.tick)
-        self.busy = False
-        self.timer.start(20)
-
-    def tick(self):
-        if self.busy or self.done:
-            return
-        self.busy = True
-        try:
-            next(self.gen)
-        except StopIteration:
-            self.done = True
-        except BaseException:  # noqa: BLE001
-            self.error, self.done = traceback.format_exc(), True
-        finally:
-            self.busy = False
-        if self.done:
-            self.timer.stop()
-            for w in QApplication.topLevelWidgets():
-                if isinstance(w, (NotesReviewDialog, NotesScopeDialog)) and w.isVisible():
-                    w.done(0)
-
-
-def review():
-    found = [w for w in QApplication.topLevelWidgets() if isinstance(w, NotesReviewDialog) and w.isVisible()]
-    return found[0] if found else None
-
-
-def scope():
-    found = [w for w in QApplication.topLevelWidgets() if isinstance(w, NotesScopeDialog) and w.isVisible()]
-    return found[0] if found else None
-
-
-def wait(cond, what, timeout=30):
+def pump(cond, what: str, timeout: float = 30) -> None:
+    """Processes events until `cond()` is true (the lookup thread and the note-state reader report through signals)."""
     end = time.perf_counter() + timeout
     while not cond():
-        assert time.perf_counter() < end, what
-        yield
+        assert time.perf_counter() < end, f"waited too long for {what}"
+        QApplication.processEvents()
+        time.sleep(0.005)
+    QApplication.processEvents()
 
 
 def click(widget):
     QTest.mouseClick(widget, Qt.MouseButton.LeftButton)
+
+
+def idle(window) -> bool:
+    w = window.worker
+    return not window._lookup_running and not w.busy and not w.waiting() and not window._rebuilding
+
+
+def open_library(window, folder: Path) -> None:
+    window.open_library_folder(str(folder))
+    pump(lambda: window.tree.state_known(str(folder)), "the library's first note states")
+
+
+def select(window, folder: Path) -> None:
+    assert window.tree.select(folder), folder
+    pump(lambda: window.tree.state_known(str(folder)), f"the note state of {folder.name}")
+    assert Path(window._shown) == Path(folder)
+
+
+def set_options(window, below: bool = True, kinds=None, outdated: bool = False) -> None:
+    registry = window.actions_by_key
+    registry["look_up_below"].setChecked(below)
+    registry["look_up_outdated"].setChecked(outdated)
+    if kinds is not None:
+        for (_media, kind), key in window.kind_actions.items():
+            registry[key].setChecked(kind in kinds)
+    window._on_options_changed()
+
+
+def look_up(window, folder: Path, fetchers, *, library: Path | None = None, below: bool = True, kinds=None,
+            outdated: bool = False) -> None:
+    """Opens `library` (default: `folder`) if it is not open yet, selects `folder`, Look Up, waits until it is done."""
+    library = library or folder
+    if Path(window.library_folder or ".") != Path(library):
+        open_library(window, library)
+    window.notes_fetchers = lambda: fetchers
+    set_options(window, below, kinds, outdated)
+    select(window, folder)
+    window.actions_by_key["look_up"].trigger()
+    pump(lambda: idle(window), "the lookup", 60)
+
+
+def wait_rebuilt(window) -> None:
+    pump(lambda: idle(window), "the rebuild", 30)
+
+
+def item(window, folder: Path):
+    return window.item_of(str(folder))
+
+
+def light(window, folder: Path) -> str:
+    """The light the tree shows for `folder` (gui/lights.py), worked out the way the tree does."""
+    from gui.library_tree import path_key
+    from gui.lights import folder_light
+
+    state, _note = window.tree.note_state(str(folder))
+    waiting = window.tree._drafts.get(path_key(folder), (False, False, False))[0]
+    return folder_light(state, waiting)
+
+
+def tick_box(window, folder: Path):
+    """The check state of `folder`'s row: None when it has no tick box."""
+    row = window.tree.item_for(folder)
+    if row is None or not (row.flags() & Qt.ItemFlag.ItemIsUserCheckable):
+        return None
+    return row.checkState(0) == Qt.CheckState.Checked
 
 
 @pytest.fixture
@@ -74,7 +102,11 @@ def boxes(monkeypatch):
 
     def question(p, t, x, *a, **k):
         seen.append((t, x))
-        return QMessageBox.StandardButton.Yes if any(w in x for w in seen.yes) else QMessageBox.StandardButton.No
+        if any(w in x for w in seen.yes):
+            buttons = a[0] if a else QMessageBox.StandardButton.Yes
+            return (QMessageBox.StandardButton.Save if buttons & QMessageBox.StandardButton.Save
+                    else QMessageBox.StandardButton.Yes)
+        return QMessageBox.StandardButton.No
 
     monkeypatch.setattr(QMessageBox, "question", staticmethod(question))
     return seen
@@ -89,27 +121,3 @@ class Boxes(list):
 
     def said(self, words: str) -> bool:
         return any(words in text for _title, text in self)
-
-
-def run(window, monkeypatch, folder, fetchers, scenario, must_finish=True, choose=None):
-    """Notes > Create Notes on the opened library `folder`: the folder question first (`choose(dialog)` sets it up; by
-    default the folder is picked with Another folder...), then the scenario."""
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: str(folder)))
-    window.open_library_folder(str(folder))
-    window.notes_fetchers = lambda: fetchers
-
-    def with_scope_step():
-        yield from wait(lambda: scope() is not None, "the scope dialog")
-        dialog = scope()
-        if choose is not None:
-            choose(dialog)
-        else:
-            dialog.other_radio.click()
-        click(dialog.continue_button)
-        yield from scenario()
-
-    script = Script(with_scope_step())
-    window.actions_by_key["create_notes"].trigger()
-    script.timer.stop()
-    assert script.error == "", script.error
-    assert script.done or not must_finish, "the scenario did not finish"

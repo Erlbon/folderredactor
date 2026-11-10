@@ -7,6 +7,7 @@ all of them:
 
   build_proposals(targets, engine, ...)     one Proposal per target in order (progress, cancel, on_proposal); never writes
   write_proposal(proposal, dry_run=...)     the shared writer: never overwrites, status: draft, a refresh to the Recycle Bin
+  save_edited_note(path, text, expect)      a note a person edited in the note pane (only while unchanged on disk)
   record_note_created(path, text, ...)      the opt-in History entry of a written note
   undo_note_entry(entry)                    its undo (Recycle Bin, only while the note is unchanged)
   summarize(proposals, results)             counts for a report
@@ -103,6 +104,24 @@ def _amend(proposal: Proposal, dry_run: bool, allow_uncertain: bool) -> NoteWrit
     result = amend_note(path, proposal.note_text, proposal.old_state, dry_run=dry_run, trash=_trash())
     if result.ok and not dry_run:
         record_note_created(result.path, proposal.note_text, True, old_bytes=old_bytes)
+    return result
+
+
+def save_edited_note(path: str, text: str, expect, trash=None) -> NoteWriteResult:
+    """A note a person edited in the note pane (window review 2026-11-10, card 7): written only while the note on disk is
+    still what was read (`expect`, its NoteState), the old one to the Recycle Bin (on a share without one the save is refused
+    and the note stays as it was). The body-sha line is left as it was, so the note reads as edited by a person from now
+    on and no lookup touches it again. Recorded in the opt-in History as a refresh, so it can be undone."""
+    from core.note_amend import amend_note  # noqa: PLC0415
+
+    try:
+        with open(path, "rb") as handle:
+            old_bytes = handle.read()
+    except OSError:
+        old_bytes = None
+    result = amend_note(path, text, expect, trash=trash or _trash())
+    if result.ok:
+        record_note_created(result.path, text, True, old_bytes=old_bytes)
     return result
 
 
