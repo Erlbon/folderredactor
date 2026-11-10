@@ -26,8 +26,9 @@ The window review of 2026-11-10 (`docs/ui-review-2026-11-10.md`), as Erlend answ
 - **Edit a note in the pane** (Edit, F4): Save writes it while the note on disk is still what was read, the old text to
   the Recycle Bin; it then reads as edited by you and Look Up leaves it alone. Moving away with unsaved changes asks.
 - **Edit > Undo** takes back the last note written or saved here (with Tools > History on).
-- **The Clean Up menu is gone:** this program writes folder notes and nothing else (the folder-tree clean-up of the
-  first plan is dropped). Notes > Refresh Old Notes and Switch View went with the old window; View > Command Palette no
+- **The greyed Clean Up menu is gone.** The folder-name check comes back, built, in this window: a naming mark per
+  folder in the tree, the fix in the pane, Check Names beside Look Up. Notes > Refresh Old Notes and Switch View went
+  with the old window; View > Command Palette no
   longer also says "not built yet".
 - Tools > Preferences: the Create Notes groups are called Look Up.
 

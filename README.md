@@ -1,9 +1,10 @@
 # The Ⅎolder Redactor (folderredactor)
 
 The fifth Redactor: a tool for the folders of a media library. It drafts the Markdown folder notes the Pluteus media
-server shows (`artist.md`, `album.md`, `series.md`, `about.md`), reviewed yes/no before anything is written; that is all
-it does (the folder-tree clean-up of the first plan was dropped, window review 2026-11-10). What a user sees is in
-[ABOUT.md](ABOUT.md); this file is for working on the code.
+server shows (`artist.md`, `album.md`, `series.md`, `about.md`), reviewed yes/no before anything is written. Job 2,
+not built yet, checks a library's folder names against its conventions and renames only what is said yes to, with
+undo; it goes into the same window (a naming mark per folder in the tree, the fix in the pane, Check Names beside Look
+Up). What a user sees is in [ABOUT.md](ABOUT.md); this file is for working on the code.
 
 Status: plan steps 5-11 (step 11: the full check, 2026-11-06), then the window of the review of 2026-11-10
 (`docs/ui-review-2026-11-10.md`): the library as a tree with a note light per folder on the left, the note pane always
@@ -71,7 +72,7 @@ hold no control characters; pre-push: the tests pass).
 ## Rules this app keeps
 
 - Into a library it writes `.md` folder notes and nothing else.
-- Nothing is written without a yes, and everything written is undoable from Tools > History (Edit > Undo for the last one).
+- Nothing is written or renamed without a yes, and everything written is undoable from Tools > History (Edit > Undo for the last one).
 - It follows the family conventions in full (see CLAUDE.md): version bump + CHANGELOG with every code commit, the
   menu skeleton and its lint, progress dialogs for slow work, the CLI inside the one exe.
 

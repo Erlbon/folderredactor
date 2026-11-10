@@ -9,7 +9,9 @@ history live next to the program.
 
 Part of the Redactor family (the ƎPUB, ɯP3, Ʌideo and ƆBZ Redactors). This is an early build: folder notes work for
 music libraries (artists, albums, genres, moved here from the ɯP3 Redactor) and video libraries (series and films, from
-the Ʌideo Redactor), in the window and with the `notes` command.
+the Ʌideo Redactor), in the window and with the `notes` command. A check of the folder names against the library's
+conventions (stray spaces, release tags, year forms, numbering), with renames you say yes or no to, is planned for the
+same window.
 
 ## Installing and updating
 
