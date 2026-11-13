@@ -342,17 +342,25 @@ class NotesEngine:
 
     def build_proposal(self, target: Target) -> Proposal:
         """One proposal; never raises for a service failure (the problem is in `problems`)."""
-        if self._network_failures >= 2:
-            return Proposal(target, Confidence.NONE, reasons=["skipped: the services could not be reached"],
-                            problems=["could not reach MusicBrainz (repeated); the rest of the run was not looked up"])
         url = self._link_override(target.folder)
-        if url:
+        if url:  # a link is asked for whatever the run did before: its own source may well answer
+            failures = self._network_failures
             try:
                 return self.rebuild(Proposal(target), link=url)
             except LinkError as exc:
                 return Proposal(target, Confidence.NONE, reasons=[f"the link given for this folder cannot be used: {exc}"],
                                 problems=[str(exc)])
+            finally:
+                self._network_failures = failures  # the run's count is about the folders that were searched for
+        if self._network_failures >= 2:
+            return Proposal(target, Confidence.NONE, reasons=["skipped: the services could not be reached"],
+                            problems=["could not reach MusicBrainz (repeated); the rest of the run was not looked up"])
         return self._dispatch(target)
+
+    def new_run(self) -> None:
+        """A new Look Up / command-line run starts: the early stop after two unreachable folders is for ONE run. The window
+        keeps its engine for as long as the library is open, and a service that was down a minute ago is asked again."""
+        self._network_failures = 0
 
     def set_links(self, folder: str, url: str) -> None:
         """A link (Wikipedia, MusicBrainz, Discogs) given for a folder: its FULL name or its full path (the command
@@ -417,9 +425,17 @@ class NotesEngine:
         else:
             raise LinkError("Use a link to an artist here (a MusicBrainz or Discogs artist page, a Wikipedia article, "
                             "a MusicBrainz release group of theirs).")
+        via_page = target.kind in ("wikipedia", "wikidata")
+        unreached = ""
         if mbid:
-            hit = nmb.artist_by_id(mbid, self._mb)
-            evaluation, _groups = self._evaluate_mb(hit, names, [], titles, years)
+            try:
+                hit = nmb.artist_by_id(mbid, self._mb)
+                evaluation, _groups = self._evaluate_mb(hit, names, [], titles, years)
+            except nmb.MusicBrainzError as exc:
+                if not (via_page and _is_network_down(str(exc))):
+                    raise
+                unreached, mbid = str(exc), ""  # the page was the link: Discogs or the article itself can still answer
+        if mbid:
             cand = Candidate("musicbrainz", hit.id, hit.name, evaluation.detail, list(evaluation.hits), 1.0, origin)
             page = None
             if target.kind == "wikipedia":
@@ -431,6 +447,20 @@ class NotesEngine:
             if discogs_id and discogs_id.isdigit() and self._discogs is not None:
                 cand.also, cand.also_id = "discogs", discogs_id
             return cand
+        if unreached:
+            if discogs_id and discogs_id.isdigit() and self._discogs is not None:
+                try:
+                    info = nd.artist_info(self._discogs, int(discogs_id))
+                    return Candidate("discogs", discogs_id, info.name, f"Discogs {discogs_id}", [], 1.0,
+                                     f"{origin}; MusicBrainz could not be reached, built from Discogs")
+                except DiscogsError:
+                    pass
+            page = wp.get_summary(target.id, self._wiki, target.lang or "en") if target.kind == "wikipedia" else None
+            if page is None:
+                raise LinkError(unreached)
+            return Candidate("wikipedia", page.title, page.title, page.description or "Wikipedia article", [], 0.5,
+                             f"from a link: {target.raw} (MusicBrainz could not be reached: a thin draft from the "
+                             f"Wikipedia article only; look it up again later for the full note)")
         if self._discogs is None:
             raise LinkError(DISCOGS_MISSING)
         info = nd.artist_info(self._discogs, int(discogs_id))
@@ -1421,6 +1451,8 @@ class NotesEngine:
         facts = [("Artist", artist), ("Released", year)] if is_album else []
         facts.append(("Wikipedia describes it as", page.description))
         proposal.reasons.append(f"chosen by you: Wikipedia article '{page.title}' (thin draft: introduction only)")
+        if "could not be reached" in (force.note or ""):
+            proposal.reasons.append(force.note)
         proposal.confidence = Confidence.CONFIDENT
         proposal.sources = ["wikipedia"]
         proposal.title = name
@@ -1526,14 +1558,19 @@ class NotesEngine:
             proposal.reasons.append(f"artist verified through MusicBrainz: {mb_artist.evaluation.name}")
         if not pool:
             searched: list[nmb.ReleaseGroup] = []
-            for title in local.titles[:2]:
-                searched = nmb.search_release_groups(
-                    names[0] if names else "", title, self._mb, primary_album=True, soundtrack=soundtrack)
-                if not searched:
+            try:
+                for title in local.titles[:2]:
                     searched = nmb.search_release_groups(
-                        names[0] if names else "", title, self._mb, primary_album=False, soundtrack=soundtrack)
-                if searched:
-                    break
+                        names[0] if names else "", title, self._mb, primary_album=True, soundtrack=soundtrack)
+                    if not searched:
+                        searched = nmb.search_release_groups(
+                            names[0] if names else "", title, self._mb, primary_album=False, soundtrack=soundtrack)
+                    if searched:
+                        break
+            except nmb.MusicBrainzError as exc:  # MusicBrainz is out: Discogs and a chosen Wikipedia article still answer
+                if str(exc) not in proposal.problems:
+                    proposal.problems.append(str(exc))
+                proposal.reasons.append("MusicBrainz failed")
             pool = searched
         artist_names = names or [""]
         for group in pool:
@@ -1837,6 +1874,7 @@ def build_proposals(
     """One Proposal per target, in order (the shared core's build_proposals: progress, cancel, on_proposal). Network
     only; this function writes no file. Writing, History and undo are the shared core's (core/notes_engine.py)."""
     engine = engine or NotesEngine(fetchers, loader, cache)  # a caller that keeps the engine can rebuild with its caches
+    engine.new_run()
     return notes_engine.build_proposals(targets, engine, progress, cancel, on_proposal)
 
 

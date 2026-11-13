@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-13#01 -- One service that is down no longer blocks the rest
+
+- **Look Up asks again.** After two folders in a row could not reach a service, every later Look Up answered "skipped:
+  the services could not be reached" for as long as the library stayed open, also when the service was back. The early
+  stop now ends with the run it belongs to.
+- **A pasted Wikipedia link works while MusicBrainz is down.** For an artist it used to fail on the MusicBrainz id the
+  article names; it now builds from Discogs when the article names a Discogs id and the token is set, else a thin draft
+  from the article itself, and the reasons say MusicBrainz could not be reached. For an album the failed MusicBrainz
+  search no longer ends the lookup before the article (or Discogs) is used.
+- Command line: a folder given a `--link` is looked up also after the run stopped early for the other folders.
+
 ## 2026-11-10#01 -- One window: the library tree and the note pane
 
 The window review of 2026-11-10 (`docs/ui-review-2026-11-10.md`), as Erlend answered it.
