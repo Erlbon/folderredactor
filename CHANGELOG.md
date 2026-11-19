@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-19#01 -- redactor_common 2026-11-18-01
+
+- Moved to the family's newest shared code (from 2026-11-08-02). **Help > Check for Updates falls back to GitHub's own API** when a release download fails, instead of giving up. The column-header menu's top entries can be on/off switches. No other change to the app.
+
 ## 2026-11-13#01 -- One service that is down no longer blocks the rest
 
 - **Look Up asks again.** After two folders in a row could not reach a service, every later Look Up answered "skipped:
