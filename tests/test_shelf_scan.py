@@ -81,6 +81,46 @@ def test_loose_comics_in_a_country_and_a_publisher_leave_them_groupings(lib):
         "_Hjemmet": "grouping", "Nemi": "series", "Fantomet (1950-)": "series", "Donald Duck & Co (1948-)": "series"}
 
 
+def test_a_small_country_among_grouped_countries_is_a_grouping_too(lib):
+    """'594 - EU/594971 - Serbian' on the share: loose albums next to creator folders and a publisher without an
+    underscore, so it looked like one series with extras; the other countries beside it are groupings (B, 2026-11-21)."""
+    eu = lib / "741.59 - Comic Books" / "594 - EU"
+    touch(eu / "59481 - Norwegian" / "Hauk 006.cbz")
+    touch(eu / "59481 - Norwegian" / "_Egmont" / "Nemi" / "Nemi 115.cbz")
+    touch(eu / "59481 - Norwegian" / "_Semic" / "Fantomet (1950-)" / "Fantomet 001.cbz")
+    touch(eu / "5941 - British" / "_Fleetway" / "2000 AD (1977-)" / "2000 AD 0001.cbz")
+    touch(eu / "5944 - French" / "_Dupuis" / "Spirou (1938-)" / "Spirou 001.cbz")  # on the share: 17 countries beside it
+    serbia = eu / "594971 - Serbian"
+    touch(serbia / "Stripoteka 043 (Forum-Marketprint, 1972-08-12).cbz")
+    touch(serbia / "Aleksa Gajic (1974)" / "Technotise [SR].cbz")
+    touch(serbia / "Decje Novine" / "Cat Claw (Branislav 'Bane' Kerac, 1981-)" / "Cat Claw 01.cbz")
+    result = comics.scan([eu])
+    assert found(result)["594971 - Serbian"] == "grouping"
+    assert found(result)["Aleksa Gajic (1974)"] == "series" and found(result)["Decje Novine"] == "grouping"
+    assert found(comics.scan([serbia]))["594971 - Serbian"] == "grouping"  # also when Scan starts at the country
+
+
+def test_a_series_with_one_extra_folder_beside_groupings_stays_a_series(lib):
+    """'_Dupuis/_Spirou/Spirou Et Fantasio' on the share: 52 albums and a 'Hors série' folder, beside 'Robbedoes' and
+    'Spirou' that hold only folders."""
+    spirou = lib / "_Spirou"
+    touch(spirou / "Spirou Et Fantasio (André Franquin, 1946-1968)" / "SeF 01.cbz")
+    touch(spirou / "Spirou Et Fantasio (André Franquin, 1946-1968)" / "Hors série" / "HS 01.cbz")
+    touch(spirou / "Le Petit Spirou" / "LPS 01.cbz")
+    touch(spirou / "Robbedoes (1938-2005)" / "1938" / "Robbedoes 1938-01.cbz")
+    touch(spirou / "Spirou" / "1947" / "Spirou 1947-01.cbz")
+    assert found(comics.scan([spirou]))["Spirou Et Fantasio (André Franquin, 1946-1968)"] == "series"
+
+
+def test_a_series_among_other_series_stays_a_series(lib):
+    publisher = lib / "_Dupuis"
+    touch(publisher / "Spirou (1938-)" / "Spirou 001.cbz")
+    touch(publisher / "Spirou (1938-)" / "Hors-Serie" / "HS 01.cbz")
+    touch(publisher / "Gaston (1957-)" / "Gaston 01.cbz")
+    touch(publisher / "Lucky Luke (1949-)" / "Lucky Luke 01.cbz")
+    assert found(comics.scan([publisher]))["Spirou (1938-)"] == "series"
+
+
 def test_a_series_with_an_annuals_folder_stays_one_series(lib):
     series = lib / "Spider-Man (1963-)"
     touch(series / "Amazing 001.cbz")

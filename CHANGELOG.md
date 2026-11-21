@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-21#09 -- A small country follows the countries beside it
+
+- **Serbian, Swiss and Croatian are groupings now,** with their publishers and series below. They have a few loose
+  albums next to creator folders and publishers without an underscore, so they looked like one series with extras.
+- The rule (Erlend's B, 2026-11-21): a folder with loose comics and two or more folders of comics is a grouping when most
+  of the folders beside it (at least three) are groupings. A series with one `Hors série` or `Annuals` folder stays a
+  series whatever is beside it (`_Spirou/Spirou Et Fantasio` among `Robbedoes` and `Spirou`).
+- Re-scan of all 18 EU countries: only those three changed; the other 15 are as in 2026-11-21#08.
+
 ## 2026-11-21#08 -- Loose comics no longer turn a country or a publisher into one series
 
 - **Found by a scan of `594 - EU` on the share.** 16 of the 18 countries have a few comics lying loose in the country

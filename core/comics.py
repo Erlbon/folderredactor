@@ -7,7 +7,9 @@ only; Look Up for comics (ComicInfo.xml, Comic Vine) is plan step 18 and not bui
   series    a folder that holds comic files (.cbz, .cbr, .cb7, .cbt) directly          -> series.md
             nothing below a series folder is judged (annuals or extras inside it belong to it)
             except: an underscore folder, or a folder whose folders are mostly groupings, stays a grouping even with
-            comics lying loose in it; those loose comics get no note (2026-11-21)
+            comics lying loose in it; those loose comics get no note (2026-11-21); and so does a folder with loose
+            comics AND folders of comics when most of the folders beside it are groupings ('594971 - Serbian' among
+            the other countries; Erlend's B, 2026-11-21)
   grouping  a folder above series folders: publisher, lineage ('3.23 - Imprint'), country, continent, an underscore
             grouping ('_Crossovers')                                                     -> about.md
   no note   letter buckets (A, B-C, 0-9), a folder named only '_' (an attention marker), a folder with no comics below
@@ -60,6 +62,20 @@ def _grouping_with_loose_comics(folder: Path, dirs: list[Path]) -> bool:
     return _is_underscore_grouping(folder.name) or _holds_groupings(dirs)
 
 
+SIBLINGS_NEEDED = 3  # folders beside one before what they are counts as a pattern
+
+
+def _looks_like_grouping(folder: Path) -> bool:
+    """A grouping by its own contents: an underscore folder, a folder of series (no comics of its own, comics below), or one
+    with loose comics whose folders are mostly groupings. (Not by its siblings: that would go round in circles.)"""
+    if _is_underscore_grouping(folder.name):
+        return True
+    files, dirs = entries(folder)
+    if not has_extension(files, COMIC_EXTENSIONS):
+        return any(_comics_below(d, 3) for d in dirs)
+    return _holds_groupings(dirs)
+
+
 def scan(paths: Iterable, include_subfolders: bool = True, kinds: Iterable[str] = ALL_KINDS, include_outdated: bool = False,
          on_folder: Callback = None) -> ShelfScan:
     """The series and grouping folders under `paths` that have no note yet (`targets`) and those that have one (`skipped`).
@@ -69,13 +85,31 @@ def scan(paths: Iterable, include_subfolders: bool = True, kinds: Iterable[str] 
     `on_folder(folder)` is called for every folder walked into (it may raise to stop the scan)."""
     record = Recorder(kinds)
     roots, record.result.missing = roots_of(paths)
+    grouping_children: dict[str, dict[str, bool]] = {}  # parent folder -> {child name: looks like a grouping}
+
+    def siblings_are_groupings(folder: Path) -> bool:
+        """Most of the other folders beside `folder` are groupings ('594 - EU/594971 - Serbian' beside the other countries).
+        Worked out once per parent folder."""
+        parent = folder.parent
+        if parent == folder:
+            return False
+        key = str(parent)
+        if key not in grouping_children:
+            grouping_children[key] = {d.name: _looks_like_grouping(d) for d in entries(parent)[1]}
+        others = [v for name, v in grouping_children[key].items() if name != folder.name]
+        # at least three others, or one '_Crossovers' beside 'Spider-Man (1963-)/Annuals' would make the series a grouping
+        return len(others) >= SIBLINGS_NEEDED and sum(others) * 2 > len(others)
 
     def walk(folder: Path, is_root: bool) -> bool:
         """Judges `folder` and below; True when comics are in it or below it."""
         if on_folder is not None:
             on_folder(folder)
         files, dirs = entries(folder)
-        if has_extension(files, COMIC_EXTENSIONS) and not _grouping_with_loose_comics(folder, dirs):
+        loose = has_extension(files, COMIC_EXTENSIONS)
+        # a series with one 'Hors série' / 'Annuals' folder stays a series, whatever is beside it; a country with loose
+        # albums next to two or more folders of comics follows the countries beside it
+        if loose and not _grouping_with_loose_comics(folder, dirs) and not (
+                sum(_comics_below(d, 3) for d in dirs) >= 2 and siblings_are_groupings(folder)):
             record.consider(folder, KIND_SERIES)
             return True
         below = False
