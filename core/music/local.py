@@ -447,10 +447,11 @@ def folder_layout(folder: Path, depth: int = 3) -> str:
 
 def scan(
     paths: Iterable[str | os.PathLike], include_subfolders: bool = True, kinds: Iterable[str] = KINDS,
-    include_outdated: bool = False,
+    include_outdated: bool = False, on_folder: Optional[Callable[[Path], None]] = None,
 ) -> ScanResult:
     """The folders under `paths` (folders, music files, wildcards) that are at the artist or album level and
-    have no note of our own yet.
+    have no note of our own yet. `on_folder(folder)` is called for every folder walked into (progress; it may raise to
+    stop the scan, which then raises that exception).
 
     A folder with an artist.md / author.md / series.md / album.md / about.md of ANY letter case is skipped
     (`skipped`, with the file's name): Pluteus shows the first of those, so a new one would hide the person's
@@ -518,6 +519,8 @@ def scan(
         result.targets.append(Target(folder, kind, parent_name=lookup_name(folder.parent.name), layout_only=layout_only))
 
     def walk(folder: Path, is_root: bool = False) -> None:
+        if on_folder is not None:
+            on_folder(folder)
         kind = classify_level(folder, is_root, True)
         if kind:
             consider(folder, kind)

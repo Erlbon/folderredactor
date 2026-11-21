@@ -61,6 +61,9 @@ MENU_NOTES = "&Notes"
 LOOK_UP_KEY = "Ctrl+L"
 WRITE_TICKED_KEY = keys.APPLY  # Ctrl+Return
 NEXT_WAITING_KEY = "F8"
+SCAN_TOOLTIP = ("Which folders below the selected one still need a note: the tree opens down to each of them, with a count "
+                "after every folder above them. Same rules as Look Up (the kinds ticked under Look Up Options); nothing "
+                "is looked up or written")
 EDIT_NOTE_KEY = "F4"
 VIEW_KEYS = ("Ctrl+1", "Ctrl+2", "Ctrl+3")
 UPDATE_QUESTION = "Replace {n} made by an older version?\n\n{recycle}"
@@ -141,6 +144,18 @@ class FolderPanel(QWidget):
         self.view.show_folder(Path(folder), kind)
 
 
+def scan_summary_text(name: str, summary) -> str:
+    """The bottom line after Scan for Notes: 'Scanned 0 - bands: 312 left (298 without a note, 14 outdated), 1,240 have a
+    note.'"""
+    left = len(summary.left)
+    have = f"{summary.have:,} {'has' if summary.have == 1 else 'have'} a note"
+    if not left:
+        return f"Scanned {name}: nothing left, {have}."
+    if summary.outdated:
+        return f"Scanned {name}: {left:,} left ({summary.without:,} without a note, {summary.outdated:,} outdated), {have}."
+    return f"Scanned {name}: {left:,} left without a note, {have}."
+
+
 class MainWindow(QMainWindow):
     def __init__(self, initial_folder: Optional[str] = None):
         super().__init__()
@@ -160,6 +175,8 @@ class MainWindow(QMainWindow):
         self._written: list[str] = []  # the notes written or saved since the window opened, newest last (Edit > Undo)
         self._shown = ""  # the folder the pane shows
         self._lookup_running = 0  # the Look Up job in hand (0: none)
+        self._scan_running = 0  # the Scan for Notes job in hand (0: none)
+        self._scan_folder = ""
 
         self.worker = LookupWorker(self._make_engine, self)
         from core.music.link import LinkError  # noqa: PLC0415
@@ -215,15 +232,19 @@ class MainWindow(QMainWindow):
         self.look_up_button = QPushButton("Look Up")
         self.look_up_button.setToolTip(f"Look up the selected folder ({LOOK_UP_KEY}); Notes > Look Up Options says what")
         self.look_up_button.clicked.connect(self._on_look_up)
+        self.scan_button = QPushButton("Scan")
+        self.scan_button.setToolTip(SCAN_TOOLTIP)
+        self.scan_button.clicked.connect(self._on_scan)
         self.write_button = QPushButton("Write ticked notes")
         self.write_button.clicked.connect(self._on_write_ticked)
-        for b in (self.look_up_button, self.write_button):
+        for b in (self.scan_button, self.look_up_button, self.write_button):
             b.setAutoDefault(False)
         bottom = QHBoxLayout()
         bottom.addWidget(self.progress_label, 1)
         bottom.addWidget(self.cancel_button)
         bottom.addSpacing(24)
         bottom.addWidget(self.ticked_label)
+        bottom.addWidget(self.scan_button)
         bottom.addWidget(self.look_up_button)
         bottom.addWidget(self.write_button)
 
@@ -296,9 +317,11 @@ class MainWindow(QMainWindow):
                                        "Options) from MusicBrainz, Discogs, TMDB and Wikipedia; nothing is written",
                                keywords="create notes artist album genre series film movie about musicbrainz discogs tmdb "
                                         "wikipedia"),
+                    MenuAction("scan_notes", "&Scan for Notes", self._on_scan, tooltip=SCAN_TOOLTIP,
+                               keywords="scan left missing notes count which folders remain"),
                     Submenu("Look Up &Options", option_items),
                     MenuAction("cancel_look_up", "&Cancel Look Up", self._on_cancel_look_up,
-                               tooltip="Stop after the folder in hand; the drafts so far stay"),
+                               tooltip="Stop after the folder in hand (the drafts so far stay), or stop a scan"),
                     Separator(),
                     MenuAction("write_ticked", "&Write Ticked Notes", self._on_write_ticked, shortcut=WRITE_TICKED_KEY),
                     MenuAction("write_this", "Write T&his Note", self._on_write_this,
@@ -413,6 +436,7 @@ class MainWindow(QMainWindow):
 
         self.worker.reset()
         self._lookup_running = 0
+        self._scan_running = 0
         self.session = ReviewSession([], write_fn=self._write_proposal)
         self._index.clear()
         self._media_of.clear()
@@ -560,6 +584,8 @@ class MainWindow(QMainWindow):
         w.rebuilt.connect(self._on_rebuilt)
         w.rebuild_failed.connect(self._on_rebuild_failed)
         w.status.connect(lambda text: self.progress_label.setText(f"{text}…  {self.progress_label.text()}"))
+        w.scan_progress.connect(self._on_scan_progress)
+        w.scan_done.connect(self._on_scan_done)
 
     def media_for(self, folder: str) -> str:
         """Music or video for a Look Up on `folder`: its own files first, else the library's guess, else the kind used last
@@ -619,6 +645,51 @@ class MainWindow(QMainWindow):
         if self._lookup_running:
             self.worker.cancel()
             self.progress_label.setText("Cancelling after the folder in hand…")
+        elif self._scan_running:
+            self.worker.cancel()
+            self.progress_label.setText("Cancelling the scan…")
+
+    # --- Scan for Notes ---------------------------------------------------------------------------------------------
+
+    def _on_scan(self) -> None:
+        """Notes > Scan for Notes: Look Up's own scan of the selected folder and below, nothing looked up; the tree then
+        shows every folder left."""
+        folder = self.tree.current_path() or self.library_folder
+        if not folder:
+            self.status_bar.showMessage("Open a library folder first (File > Open Library Folder).")
+            return
+        if self._scan_running:
+            return
+        media = self.media_for(folder)
+        if not media:
+            return
+        kinds = self.chosen_kinds(media)
+        if not kinds:
+            self.status_bar.showMessage("Nothing ticked under Notes > Look Up Options.")
+            return
+        self._scan_folder = folder
+        self._scan_running = self.worker.scan_only(media, folder, kinds, self.actions_by_key["look_up_outdated"].isChecked())
+        self.progress_label.setText(f"Scanning {os.path.basename(folder) or folder}…")
+        self._update_buttons()
+
+    def _on_scan_progress(self, job: int, where: str) -> None:
+        if job == self._scan_running:
+            name = os.path.basename(self._scan_folder) or self._scan_folder
+            self.progress_label.setText(f"Scanning {name}…  {where}")
+
+    def _on_scan_done(self, job: int, summary) -> None:
+        if job != self._scan_running:
+            return
+        self._scan_running = 0
+        name = os.path.basename(summary.folder) or summary.folder
+        if summary.cancelled:
+            self.progress_label.setText("Scan cancelled; the tree is as it was.")
+        elif summary.problem:
+            self.progress_label.setText(summary.problem)
+        else:
+            self.tree.show_left(summary.folder, summary.left, summary.levels)
+            self.progress_label.setText(scan_summary_text(name, summary))
+        self._update_buttons()
 
     def _on_scanned(self, job: int, count: int, message: str) -> None:
         if count == 0:
@@ -821,12 +892,15 @@ class MainWindow(QMainWindow):
         self.write_button.setText(f"Write {n} ticked note{'s' if n != 1 else ''}")
         self.write_button.setEnabled(n > 0)
         self.ticked_label.setText("")
-        self.cancel_button.setVisible(bool(self._lookup_running))
-        self.actions_by_key["cancel_look_up"].setEnabled(bool(self._lookup_running))
+        running = bool(self._lookup_running or self._scan_running)
+        self.cancel_button.setVisible(running)
+        self.actions_by_key["cancel_look_up"].setEnabled(running)
         self.actions_by_key["write_ticked"].setEnabled(n > 0)
         has_library = bool(self.library_folder)
         self.look_up_button.setEnabled(has_library)
         self.actions_by_key["look_up"].setEnabled(has_library)
+        self.scan_button.setEnabled(has_library and not self._scan_running)
+        self.actions_by_key["scan_notes"].setEnabled(has_library and not self._scan_running)
         item = self.item_of(self._shown) if self._shown else None
         self.actions_by_key["write_this"].setEnabled(item is not None and item.tickable)
         self.actions_by_key["edit_note"].setEnabled(self.pane.can_edit())

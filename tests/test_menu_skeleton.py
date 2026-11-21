@@ -26,7 +26,7 @@ def test_each_menu_holds_what_the_plan_says(window):
     assert _labels(menus["File"]) == ["Open Library Folder…", "Recent", "Import from mp3redactor or videoredactor…", "Exit"]
     assert _labels(menus["Edit"]) == ["Undo"]
     assert _labels(menus["View"]) == ["Command Palette…", "Folder Panel", "Preview", "Raw Text", "Before / After"]
-    assert _labels(menus["Notes"]) == ["Look Up", "Look Up Options", "Cancel Look Up", "Write Ticked Notes",
+    assert _labels(menus["Notes"]) == ["Look Up", "Scan for Notes", "Look Up Options", "Cancel Look Up", "Write Ticked Notes",
                                        "Write This Note", "Next Waiting Folder", "Tick All Confident", "Tick Best Guesses",
                                        "Untick All", "Edit Note"]
     assert _labels(menus["Tools"]) == ["Preferences…", "API Keys…", "Clear Lookup Cache", "History…"]

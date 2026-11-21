@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-21#01 -- Scan for Notes: which folders are left
+
+- **Scan** (the button beside Look Up, or Notes > Scan for Notes) goes through the selected folder and everything
+  below it, for example `0 - bands`, and shows which folders still need a note. It uses the same rules as Look Up (the
+  kinds ticked under Look Up Options, and Also Refresh Outdated Notes). Nothing is looked up and nothing is written.
+- When it is done, the tree opens down to every folder left. Letter folders with nothing left stay closed. Each folder
+  above the ones left gets a grey count after its name ("5 left"); a folder with nothing left below it says "all done".
+  The bottom line gives the totals: "Scanned 0 - bands: 312 left without a note, 1,240 have a note" (with the outdated
+  ones counted apart when that option is on).
+- A note written or saved later takes its folder off the counts at once. It runs in the background with the folder in
+  hand in the bottom line; Cancel stops it and leaves the tree as it was.
+
 ## 2026-11-19#01 -- redactor_common 2026-11-18-01
 
 - Moved to the family's newest shared code (from 2026-11-08-02). **Help > Check for Updates falls back to GitHub's own API** when a release download fails, instead of giving up. The column-header menu's top entries can be on/off switches. No other change to the app.

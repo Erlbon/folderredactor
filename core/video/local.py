@@ -24,7 +24,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 from redactor_common.core.lookups.release_name import parse_release_name
 from redactor_common.core.notes import NoteState, existing_note, note_status
@@ -245,9 +245,10 @@ def _resolve_roots(paths: Iterable[str | os.PathLike]) -> tuple[list[Path], list
 
 def scan(
     paths: Iterable[str | os.PathLike], include_subfolders: bool = True, kinds: Iterable[str] = ALL_KINDS,
-    include_outdated: bool = False,
+    include_outdated: bool = False, on_folder: Optional[Callable[[Path], None]] = None,
 ) -> ScanResult:
     """The title folders under `paths` (folders, or files standing for their folder) that have no note yet.
+    `on_folder(folder)` is called for every folder walked into (progress; it may raise to stop the scan).
 
     A folder with an artist.md / author.md / series.md / album.md / about.md of ANY letter case is skipped (`skipped`, with
     the file's name): Pluteus shows the first of those, so a new one would hide the person's own. With
@@ -280,6 +281,8 @@ def scan(
         result.targets.append(Target(folder, kind))
 
     def walk(folder: Path, is_root: bool) -> None:
+        if on_folder is not None:
+            on_folder(folder)
         kind = classify(folder)
         if kind:
             consider(folder, kind)
