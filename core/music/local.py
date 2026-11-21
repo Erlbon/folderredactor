@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
-from core.long_paths import literal, needs_literal
+from redactor_common.core.long_paths import literal, needs_literal
 from core.music.tags import AudioTags, is_audio_name
 from redactor_common.core.notes import NoteState, existing_note, existing_sidecar, note_status, parse_front_matter
 from redactor_common.core.temp_names import is_app_temp_name

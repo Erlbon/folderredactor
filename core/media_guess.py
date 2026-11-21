@@ -21,6 +21,7 @@ from core.books import BOOK_EXTENSIONS
 from core.comics import COMIC_EXTENSIONS
 from core.music.tags import AUDIO_EXTENSIONS
 from core.video.local import VIDEO_EXTENSIONS
+from redactor_common.core.long_paths import literal
 
 MUSIC, VIDEO, BOOKS, COMICS = "music", "video", "books", "comics"
 EXTENSIONS = {MUSIC: AUDIO_EXTENSIONS, VIDEO: VIDEO_EXTENSIONS, BOOKS: BOOK_EXTENSIONS, COMICS: COMIC_EXTENSIONS}
@@ -38,14 +39,14 @@ def count_kinds(folder: str | os.PathLike, max_files: int = MAX_FILES, max_depth
     while queue and seen < max_files:
         current, depth = queue.popleft()
         try:
-            with os.scandir(current) as entries:
+            with os.scandir(literal(current)) as entries:  # also 'R.E.M.' (redactor_common core/long_paths.py)
                 for entry in entries:
                     if entry.name.startswith("."):
                         continue
                     try:
                         if entry.is_dir(follow_symlinks=False):
                             if depth < max_depth:
-                                queue.append((Path(entry.path), depth + 1))
+                                queue.append((current / entry.name, depth + 1))
                             continue
                     except OSError:
                         continue
@@ -76,14 +77,14 @@ def _winner(counts: dict[str, int]) -> str:
 
 def guess_kind(folder: str | os.PathLike) -> str:
     """'music', 'video', 'books', 'comics' or '' (none, or too close to call)."""
-    if not folder or not os.path.isdir(folder):
+    if not folder or not os.path.isdir(literal(folder)):
         return ""
     return _winner(count_kinds(folder))
 
 
 def guess_media(folder: str | os.PathLike) -> str:
     """'music', 'video' or '' (none, or too close to call); book and comic files do not count."""
-    if not folder or not os.path.isdir(folder):
+    if not folder or not os.path.isdir(literal(folder)):
         return ""
     counts = count_kinds(folder)
     return _winner({MUSIC: counts[MUSIC], VIDEO: counts[VIDEO]})

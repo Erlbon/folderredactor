@@ -6,10 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from core.long_paths import literal, needs_literal
+from redactor_common.core.long_paths import literal, needs_literal
 from core.music.local import scan as music_scan
 from core.video.local import scan as video_scan
 from tests.music_helpers import make_audio
+from tests.notes_gui_helpers import boxes  # noqa: F401 -- a fixture
 from tests.video_helpers import make_movie
 
 
@@ -53,6 +54,29 @@ def test_the_music_scan_finds_an_artist_whose_name_ends_in_a_dot_and_its_note(tm
     for t in result.targets:  # plain paths with the dot kept (the tree compares them), and real folders
         assert not str(t.folder).startswith("\\\\?\\") and os.path.isdir(literal(t.folder))
     assert music_scan([lib / "R.E.M."], kinds=("artist",)).skipped  # chosen on its own, too
+
+
+def test_look_up_reads_the_tags_and_writes_the_notes_in_a_folder_whose_name_ends_in_a_dot(window, tmp_path, boxes):
+    """The whole way: scan, the tags and the cover read, the draft built, both notes written (redactor_common 2026-11-21)."""
+    from tests.music_helpers import embed_cover, ultravox_fetchers, ultravox_library
+    from tests.notes_gui_helpers import look_up, pump
+
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    plain = ultravox_library(stage, with_quartet=False)
+    embed_cover(next((plain / "Vienna (1980)").glob("*.mp3")), b"\xff\xd8\xff\xe0" + b"0" * 64)
+    lib = mkdirs(tmp_path / "Library")
+    artist = lib / "Ultravox."
+    os.replace(literal(plain), literal(artist))
+    album = artist / "Vienna (1980)"
+    look_up(window, lib, ultravox_fetchers(), kinds=("artist", "album"))
+    draft = window.item_of(str(album))
+    assert draft is not None and draft.proposal.writable, "the album was drafted from its tags"
+    assert window.item_of(str(artist)).proposal.writable
+    window._on_write_ticked()
+    pump(lambda: window.tree.note_state(str(album))[1] != "", "the written notes")
+    assert os.path.isfile(literal(artist / "artist.md")) and os.path.isfile(literal(album / "album.md"))
+    assert "Wrote 2 notes." in window.status_bar.currentMessage()
 
 
 def test_the_video_scan_finds_a_film_whose_folder_ends_in_a_dot(tmp_path):

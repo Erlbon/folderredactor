@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
 
+from redactor_common.core.long_paths import literal
+
 # What counts as a music file in a folder. '.oga' is Ogg audio by its other name.
 AUDIO_EXTENSIONS = frozenset({".mp3", ".flac", ".m4a", ".ogg", ".oga", ".opus"})
 FRONT_COVER = 3  # the APIC / FLAC picture type of the front cover
@@ -87,7 +89,7 @@ def read_tags(path: str | os.PathLike) -> AudioTags:
     out = AudioTags(path=path)
     audio = None
     try:
-        audio = mutagen.File(path, easy=True)
+        audio = mutagen.File(literal(path), easy=True)  # literal(): also in a folder like 'R.E.M.'
     except Exception as exc:  # noqa: BLE001 -- mutagen raises many kinds; a bad file is said, never a traceback
         out.load_error = f"{type(exc).__name__}: {exc}"
     tags = getattr(audio, "tags", None) if audio is not None else None
@@ -95,7 +97,7 @@ def read_tags(path: str | os.PathLike) -> AudioTags:
         try:
             from mutagen.easyid3 import EasyID3
 
-            tags = EasyID3(path)
+            tags = EasyID3(literal(path))
             out.load_error = ""
         except Exception as exc:  # noqa: BLE001
             out.load_error = out.load_error or f"{type(exc).__name__}: {exc}"
@@ -147,7 +149,7 @@ def read_cover(path: str | os.PathLike) -> Optional[tuple[bytes, str]]:
     import mutagen
 
     try:
-        audio = mutagen.File(os.fspath(path))  # not easy: the pictures are in the raw tags
+        audio = mutagen.File(literal(path))  # not easy: the pictures are in the raw tags
     except Exception:  # noqa: BLE001 -- an unreadable file shows no cover
         audio = None
     if audio is None:
@@ -201,7 +203,7 @@ def _id3_cover(path) -> Optional[tuple[bytes, str]]:
     try:
         from mutagen.id3 import ID3
 
-        frame = _pick(ID3(os.fspath(path)).getall("APIC"), lambda f: f.type)
+        frame = _pick(ID3(literal(path)).getall("APIC"), lambda f: f.type)
     except Exception:  # noqa: BLE001
         return None
     return (bytes(frame.data), frame.mime or _sniff_mime(frame.data)) if frame and frame.data else None

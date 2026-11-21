@@ -12,11 +12,13 @@ an artist lists its albums (title, year, track count) and shows the covers of up
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 from core.music.tags import is_audio_name, read_cover
+from redactor_common.core.long_paths import literal
 from redactor_common.core.lookups.cover_finder import find_folder_image
 from core.music.local import (
     KIND_ALBUM, KIND_ARTIST, Loader, LocalAlbum, LocalTrack, album_children, album_files, album_from_tags, default_loader,
@@ -100,9 +102,10 @@ def read_cover_of(folder: Path, files: list[Path]) -> Optional[tuple[bytes, str]
     if files:
         image = find_folder_image(files[0])
         if image is not None:
-            try:
-                if image.stat().st_size <= MAX_COVER_BYTES:
-                    return image.read_bytes(), image.name
+            try:  # literal(): also in a folder whose name ends in a dot ('R.E.M.')
+                if os.path.getsize(literal(image)) <= MAX_COVER_BYTES:
+                    with open(literal(image), "rb") as handle:
+                        return handle.read(), image.name
             except OSError:
                 return None
     return None

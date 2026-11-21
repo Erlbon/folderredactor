@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-21#04 -- Look Up and Write work in folders whose names end in a dot (redactor_common 2026-11-21-02)
+
+- **`R.E.M.` gets its notes now.** Look Up reads the tags and the cover of the files inside such a folder (and its
+  `folder.jpg`), and writing the note works: the shared note writer used to answer "The folder does not exist".
+- The library's music/video/books/comics guess also looks inside such folders (it used to see nothing there and ask).
+- One helper for all of it, now in redactor_common (`core/long_paths.py`); this app's own copy is gone.
+- Still not possible there: refreshing an outdated note (the old note is kept, and the result says the Recycle Bin
+  could not take it), and most likely Undo of a written note (not tried). Both go through the Recycle Bin, which
+  Windows will not use for such a name.
+- Moved to redactor_common 2026-11-21-02 (from 2026-11-18-01).
+
 ## 2026-11-21#03 -- Music and video scans read names that end in a dot
 
 - **`R.E.M.` is no longer skipped.** The music and video scans (Look Up's and Scan's) now read folders whose names
@@ -7,7 +18,7 @@
   was missed, or counted as having no note when it had one. Book and comic scans and the tree already did this
   (2026-11-21#02); all of them now share one helper (`core/long_paths.py`).
 - Not changed yet: reading the tags of the files inside such a folder and writing a note into it still go through
-  ordinary paths.
+  ordinary paths. (Done in 2026-11-21#04.)
 
 ## 2026-11-21#02 -- Scan for Notes on books and comics
 

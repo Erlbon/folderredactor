@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
-from core.long_paths import literal  # noqa: F401 -- also used from here by the tree and the tests
+from redactor_common.core.long_paths import literal  # noqa: F401 -- also used from here by the tree and the tests
 from core.music.local import fold_name, is_alphabetical_grouping, is_generic_name, lookup_name
 from redactor_common.core.notes import existing_note
 from redactor_common.core.temp_names import is_app_temp_name
