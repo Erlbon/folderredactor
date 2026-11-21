@@ -40,6 +40,17 @@ def looks_like_author(name: str) -> bool:
     return bool(last.strip()) and bool(first.strip())
 
 
+def _holds_authors(dirs: list[Path], depth: int = 2) -> bool:
+    """Most of these folders are named like authors ('Le Guin, Ursula K.') or are sub-genres full of such folders
+    ('LitRPG/Isekai'): their parent is a genre even with books lying loose in it (Erlend, 2026-11-21, for fiction:
+    '800 - Fiction/Fantasy' with one loose PDF and 306 authors). Only author-named folders count, so non-fiction subject
+    folders ('Physics', 'History') never trigger it."""
+    if not dirs:
+        return False
+    authors = sum(looks_like_author(d.name) or (depth > 1 and _holds_authors(entries(d)[1], depth - 1)) for d in dirs)
+    return authors * 2 > len(dirs)
+
+
 def _is_calibre_book(files: list[str]) -> bool:
     return CALIBRE_OPF in {f.lower() for f in files} and has_extension(files, BOOK_EXTENSIONS)
 
@@ -64,6 +75,8 @@ def scan(paths: Iterable, include_subfolders: bool = True, kinds: Iterable[str] 
         if in_series:
             found = [walk(child, False, True, True) for child in dirs]
             return BOOKS if direct or any(found) else NONE
+        if direct and not in_author and _holds_authors(dirs):
+            direct = False  # loose books in a genre folder ('Fantasy/100 Must-Read Fantasy Novels.pdf'): left out, no note
         if direct:
             kind = KIND_SERIES if in_author else KIND_AUTHOR
             record.consider(folder, kind)

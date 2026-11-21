@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-21#07 -- Loose books in a fiction genre no longer turn it into an author
+
+- **Found by a scan of `800 - Fiction` on the share.** One loose `100 Must-Read Fantasy Novels.pdf` in `Fantasy` made
+  Fantasy "the author" and all 300 author folders under it "series". `Crime/Other` (49 authors) and `LitRPG` (39 loose
+  new books above its sub-genres) had the same fault.
+- A folder with books lying loose in it is now a genre when most of the folders in it are named like authors
+  (`Surname, Given`), or are sub-genres full of such folders (`LitRPG/Isekai`). The loose books get no note. Only
+  author-named folders count, so the rule is for fiction: non-fiction subject folders (`Physics`, `History`) are
+  judged as before (Erlend, 2026-11-21).
+- Re-scan of eight fiction genres (Fantasy, Romance, Classics, LitRPG, Crime, Western, Humour, Plays): every author,
+  series and genre at its right level; Western, Humour and Plays unchanged.
+
 ## 2026-11-21#06 -- A wrong library guess fails a test instead of hanging it
 
 - Tests only, no change to the app. The tests' box helper now also answers the window's own "What does this library

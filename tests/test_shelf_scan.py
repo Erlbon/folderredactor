@@ -103,6 +103,50 @@ def test_books_authors_series_and_genres(lib):
     assert left(result) == set(found(result)) - {"Banks, Iain M."}
 
 
+def test_loose_books_in_a_fiction_genre_full_of_authors_leave_it_a_genre(lib):
+    """'800 - Fiction/Fantasy' on the share: one loose PDF next to 306 author folders made Fantasy the author and every
+    author a series (Erlend, 2026-11-21: the rule is for fiction)."""
+    fantasy = lib / "800 - Fiction" / "Fantasy"
+    touch(fantasy / "100 Must-Read Fantasy Novels.pdf")
+    touch(fantasy / "Abbey, Lynn (1948-)" / "Lynn Abbey - Siege of Shadows.epub")
+    touch(fantasy / "Akers, Tim (1972-)" / "Tim Akers - The Pagan Night.epub")
+    touch(fantasy / "Anthony, Mark (1966-)" / "Last Rune" / "Mark Anthony - Beyond the Pale.epub")
+    result = books.scan([lib / "800 - Fiction"])
+    assert found(result) == {
+        "Fantasy": "genre", "800 - Fiction": "genre", "Abbey, Lynn (1948-)": "author", "Akers, Tim (1972-)": "author",
+        "Anthony, Mark (1966-)": "author", "Last Rune": "series"}
+
+
+def test_loose_books_above_sub_genres_full_of_authors_leave_both_genres(lib):
+    """'800 - Fiction/LitRPG' on the share: 39 loose new books next to sub-genres (Isekai, Cozy ...) that hold authors and
+    a few loose books of their own."""
+    litrpg = lib / "LitRPG"
+    touch(litrpg / "Axel Halden - Reborn as a Dungeon Looter 1.epub")
+    touch(litrpg / "Isekai" / "Loose One.epub")
+    touch(litrpg / "Isekai" / "Ames, Vira" / "Vira Ames - Book.epub")
+    touch(litrpg / "Isekai" / "Armand, Quinley" / "Quinley Armand - Book.epub")
+    touch(litrpg / "Cozy" / "Cole, Luke" / "Luke Cole - Book.epub")  # on the share: 16 of Cozy's 19 folders have a comma
+    touch(litrpg / "Cozy" / "Hale, Ada" / "Ada Hale - Book.epub")
+    touch(litrpg / "Cozy" / "Blastix" / "Blastix - Book.epub")  # a pen name without a comma: books directly, the author
+    assert found(books.scan([litrpg])) == {
+        "LitRPG": "genre", "Isekai": "genre", "Cozy": "genre", "Ames, Vira": "author", "Armand, Quinley": "author",
+        "Cole, Luke": "author", "Hale, Ada": "author", "Blastix": "author"}
+
+
+def test_loose_books_next_to_subject_folders_still_make_an_author_or_shelf(lib):
+    """Non-fiction: subject folders carry no author names, so a folder with loose books stays as it was."""
+    touch(lib / "Physics" / "Feynman - Lectures.pdf")
+    touch(lib / "Physics" / "Quantum" / "Some Book.pdf")
+    assert found(books.scan([lib / "Physics"])) == {"Physics": "author", "Quantum": "series"}
+
+
+def test_an_author_with_a_few_books_loose_and_series_folders_is_still_an_author(lib):
+    author = lib / "Fantasy" / "Pratchett, Terry"
+    touch(author / "Terry Pratchett - Good Omens.epub")
+    touch(author / "Discworld" / "Terry Pratchett - Mort.epub")
+    assert found(books.scan([lib / "Fantasy"]))["Pratchett, Terry"] == "author"
+
+
 def test_looks_like_author():
     assert books.looks_like_author("Le Guin, Ursula K.") and not books.looks_like_author("813 - Fiction, American")
     assert not books.looks_like_author("Plato") and not books.looks_like_author("Banks,")
