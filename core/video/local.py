@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
+from core.long_paths import literal
 from redactor_common.core.lookups.release_name import parse_release_name
 from redactor_common.core.notes import NoteState, existing_note, note_status
 from redactor_common.core.temp_names import is_app_temp_name
@@ -137,8 +138,8 @@ def strip_country_tag(title: str) -> str:
 # ---- reading a folder ------------------------------------------------------------------------------------------------
 
 def _videos(folder: Path) -> list[Path]:
-    try:
-        return sorted((Path(e.path) for e in os.scandir(folder)
+    try:  # literal(): also a folder whose name ends in a dot (core/long_paths.py)
+        return sorted((Path(folder) / e.name for e in os.scandir(literal(folder))
                        if e.is_file() and os.path.splitext(e.name)[1].lower() in VIDEO_EXTENSIONS
                        and not is_app_temp_name(e.name)), key=lambda p: p.name.casefold())
     except OSError:
@@ -147,7 +148,7 @@ def _videos(folder: Path) -> list[Path]:
 
 def _subfolders(folder: Path) -> list[Path]:
     try:
-        return sorted((Path(e.path) for e in os.scandir(folder) if e.is_dir() and not e.name.startswith(".")),
+        return sorted((Path(folder) / e.name for e in os.scandir(literal(folder)) if e.is_dir() and not e.name.startswith(".")),
                       key=lambda p: p.name.casefold())
     except OSError:
         return []
@@ -229,9 +230,9 @@ def _resolve_roots(paths: Iterable[str | os.PathLike]) -> tuple[list[Path], list
     seen: set[str] = set()
     for raw in paths:
         path = Path(raw)
-        if path.is_file():
+        if os.path.isfile(literal(path)):
             path = path.parent  # a chosen file stands for its folder
-        if not path.is_dir():
+        if not os.path.isdir(literal(path)):
             missing.append(str(raw))
             continue
         if is_season_folder(path.name) and not is_generic_name(path.parent.name) and _episode_files(path):
@@ -267,7 +268,7 @@ def scan(
         if key in seen or kind not in wanted:
             return
         seen.add(key)
-        found = existing_note(folder)
+        found = existing_note(literal(folder))
         if found:
             if include_outdated and Path(found).name.lower() == f"{NOTE_KIND_OF[kind]}.md":
                 state = note_status(found, CURRENT_NOTE_FORMAT)
@@ -312,6 +313,6 @@ def count_targets(folder: str, include_subfolders: bool = True) -> tuple[int, in
                 walk(child, False)
 
     root = Path(folder)
-    if root.is_dir():
+    if os.path.isdir(literal(root)):
         walk(root, True)
     return series, movies

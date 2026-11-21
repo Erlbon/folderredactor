@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-21#03 -- Music and video scans read names that end in a dot
+
+- **`R.E.M.` is no longer skipped.** The music and video scans (Look Up's and Scan's) now read folders whose names
+  end in a dot, and find the notes in them. Windows used to cut the dot off and find nothing there, so such a folder
+  was missed, or counted as having no note when it had one. Book and comic scans and the tree already did this
+  (2026-11-21#02); all of them now share one helper (`core/long_paths.py`).
+- Not changed yet: reading the tags of the files inside such a folder and writing a note into it still go through
+  ordinary paths.
+
 ## 2026-11-21#02 -- Scan for Notes on books and comics
 
 - **Scan works on book and comic trees.** The folder's files tell what it is (`.epub`, `.pdf`, `.mobi` and the other

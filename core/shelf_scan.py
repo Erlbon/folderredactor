@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
+from core.long_paths import literal  # noqa: F401 -- also used from here by the tree and the tests
 from core.music.local import fold_name, is_alphabetical_grouping, is_generic_name, lookup_name
 from redactor_common.core.notes import existing_note
 from redactor_common.core.temp_names import is_app_temp_name
@@ -72,23 +73,6 @@ class Recorder:
             self.result.targets.append(Target(folder, kind))
 
 
-LONG_PREFIX = "\\\\?\\"  # Windows' literal-path prefix
-UNC_LONG_PREFIX = "\\\\?\\UNC\\"
-
-
-def literal(folder: Path) -> str:
-    """`folder` as a path Windows opens as written. A name ending in a dot or a space ('Banks, Iain M.') is otherwise cut
-    short by Windows and opens nothing (the comics and books trees have such names; comic-checker met the same)."""
-    text = str(folder)
-    if not os.path.isabs(text):
-        text = os.path.abspath(text)  # (abspath itself cuts a trailing dot: only for a relative path)
-    if os.name != "nt" or not any(part.endswith((".", " ")) for part in Path(text).parts[1:]):
-        return text
-    if text.startswith("\\\\"):
-        return UNC_LONG_PREFIX + text[2:]
-    return LONG_PREFIX + text
-
-
 def entries(folder: Path) -> tuple[list[str], list[Path]]:
     """(file names, sub-folders) directly in `folder`, sub-folders by name (as plain paths). Hidden names, symbolic links
     and this program's temp files are left out; an unreadable folder has none. Names ending in a dot are read too."""
@@ -130,9 +114,9 @@ def roots_of(paths) -> tuple[list[Path], list[str]]:
     missing: list[str] = []
     for p in paths:
         path = Path(p)
-        if path.is_dir():
+        if os.path.isdir(literal(path)):
             roots.append(path)
-        elif path.is_file():
+        elif os.path.isfile(literal(path)):
             roots.append(path.parent)
         else:
             missing.append(str(p))

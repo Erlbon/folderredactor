@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
+from core.long_paths import literal, needs_literal
 from core.music.tags import AudioTags, is_audio_name
 from redactor_common.core.notes import NoteState, existing_note, existing_sidecar, note_status, parse_front_matter
 from redactor_common.core.temp_names import is_app_temp_name
@@ -199,15 +200,15 @@ def _entries(folder: Path) -> tuple[list[Path], list[Path]]:
     files: list[Path] = []
     dirs: list[Path] = []
     try:
-        with os.scandir(folder) as entries:
+        with os.scandir(literal(folder)) as entries:  # also 'R.E.M.' (a name ending in a dot: core/long_paths.py)
             for entry in entries:
                 if entry.name.startswith("."):
                     continue
                 try:
                     if entry.is_dir(follow_symlinks=False):
-                        dirs.append(Path(entry.path))
+                        dirs.append(Path(folder) / entry.name)
                     elif is_audio_name(entry.name) and not is_app_temp_name(entry.name):
-                        files.append(Path(entry.path))
+                        files.append(Path(folder) / entry.name)
                 except OSError:
                     continue
     except OSError:
@@ -349,14 +350,14 @@ def _resolve_roots(paths: Iterable[str | os.PathLike]) -> tuple[list[Path], list
     seen: set[str] = set()
 
     def add(path: Path) -> None:
-        key = os.path.normcase(str(path.resolve()))
+        key = os.path.normcase(str(path) if needs_literal(path) else str(path.resolve()))  # resolve() cuts a trailing dot
         if key not in seen:
             seen.add(key)
             roots.append(path)
 
     for argument in paths:
         text = os.fspath(argument)
-        if os.path.lexists(text):
+        if os.path.lexists(text) or os.path.lexists(literal(text)):
             matches = [text]
         elif any(c in text for c in "*?["):
             matches = sorted(glob.glob(text))
@@ -366,8 +367,8 @@ def _resolve_roots(paths: Iterable[str | os.PathLike]) -> tuple[list[Path], list
             missing.append(text)
             continue
         for match in matches:
-            path = Path(os.path.abspath(match))
-            if path.is_dir():
+            path = Path(match if os.path.isabs(match) else os.path.abspath(match))  # abspath would cut 'R.E.M.' to 'R.E.M'
+            if os.path.isdir(literal(path)):
                 add(path)
             elif is_audio_name(path.name):
                 add(path.parent)  # a file stands for the folder it lives in
@@ -497,7 +498,7 @@ def scan(
                 result.skipped.append(Skipped(folder, kind, f"'{folder.name or folder}' is not a {kind} folder name"))
                 result.library_root = result.library_root or key in root_keys
                 return
-        found = existing_note(folder)
+        found = existing_note(literal(folder))
         if found and include_outdated and KIND_GENRE in wanted and Path(found).name.lower() == "about.md":
             state = note_status(found, CURRENT_NOTE_FORMAT)
             if not (kind == KIND_GENRE and state.replaceable):  # a refresh of an older note of ours writes the line anyway
