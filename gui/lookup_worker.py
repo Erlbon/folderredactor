@@ -32,6 +32,8 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 MUSIC = "music"
 VIDEO = "video"
+BOOKS = "books"  # Scan for Notes only, so far (core/books.py)
+COMICS = "comics"  # Scan for Notes only, so far (core/comics.py)
 
 
 @dataclass
@@ -271,6 +273,10 @@ class LookupWorker(QThread):
         """Look Up's own scan (the same rules, the same ticked kinds and outdated option), with nothing looked up."""
         if job.media == MUSIC:
             from core.music.local import scan  # noqa: PLC0415
+        elif job.media == BOOKS:
+            from core.books import scan  # noqa: PLC0415
+        elif job.media == COMICS:
+            from core.comics import scan  # noqa: PLC0415
         else:
             from core.video.local import scan  # noqa: PLC0415
         summary = ScanSummary(job.folder)
@@ -310,7 +316,7 @@ class LookupWorker(QThread):
         return summary
 
 
-HAS_NOTE_REASON = "already has"  # how both scans start the reason of a folder skipped for its note
+HAS_NOTE_REASON = "already has"  # how every scan starts the reason of a folder skipped for its note (core.shelf_scan.HAS_NOTE)
 
 
 def _nothing_message(found, job: LookupJob) -> str:

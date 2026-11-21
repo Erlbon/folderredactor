@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.music.local import is_alphabetical_grouping
+from core.shelf_scan import literal
 from gui.lights import LIGHT_PLAIN, folder_light, light_icon
 from redactor_common.core.notes import STATE_CURRENT, STATE_EDITED, STATE_FOREIGN, existing_note, note_status
 from redactor_common.core.temp_names import is_app_temp_name
@@ -53,7 +54,7 @@ def subfolders(folder: str) -> list[str]:
     """The folders directly in `folder`, by name (case-blind); hidden ones (a leading dot) and this program's temp files left
     out. An unreadable folder has none."""
     try:
-        with os.scandir(folder) as entries:
+        with os.scandir(literal(folder)) as entries:  # also a folder whose name ends in a dot ('Tolkien, J.R.R.')
             names = [e.name for e in entries if e.is_dir(follow_symlinks=False)
                      and not e.name.startswith(".") and not is_app_temp_name(e.name)]
     except OSError:
@@ -83,7 +84,7 @@ class NoteStateReader(QThread):
             if path is None:
                 return
             try:
-                note = existing_note(path)
+                note = existing_note(literal(path))
                 state = note_status(note).kind if note else None
                 has_dirs = bool(subfolders(path))
             except OSError:

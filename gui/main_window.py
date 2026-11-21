@@ -32,7 +32,7 @@ from core import app_paths, history, notes_settings, settings
 from core.app_paths import asset_path
 from core.version import APP_NAME, APP_REPO_URL, APP_VERSION, RELEASE_LABEL
 from gui.library_tree import LibraryTree, path_key
-from gui.lookup_worker import MUSIC, VIDEO, LookupWorker
+from gui.lookup_worker import BOOKS, COMICS, MUSIC, VIDEO, LookupWorker
 from gui.note_pane import VIEW_DIFF, VIEW_PREVIEW, VIEW_RAW, MatchStrip, NotePane
 from redactor_common.core import labels
 from redactor_common.core.notes_review import PENDING, STATE_WORDS, WRITTEN, ReviewItem, ReviewSession
@@ -61,8 +61,10 @@ MENU_NOTES = "&Notes"
 LOOK_UP_KEY = "Ctrl+L"
 WRITE_TICKED_KEY = keys.APPLY  # Ctrl+Return
 NEXT_WAITING_KEY = "F8"
+LOOK_UP_NOT_YET = ("Look Up for {media} is not built yet; Scan (beside Look Up) shows which folders still need a note.")
 SCAN_TOOLTIP = ("Which folders below the selected one still need a note: the tree opens down to each of them, with a count "
-                "after every folder above them. Same rules as Look Up (the kinds ticked under Look Up Options); nothing "
+                "after every folder above them. Music and video: Look Up's rules and the kinds ticked under Look Up "
+                "Options; books and comics: every level (author, series, genre; series, publisher and groupings). Nothing "
                 "is looked up or written")
 EDIT_NOTE_KEY = "F4"
 VIEW_KEYS = ("Ctrl+1", "Ctrl+2", "Ctrl+3")
@@ -588,26 +590,27 @@ class MainWindow(QMainWindow):
         w.scan_done.connect(self._on_scan_done)
 
     def media_for(self, folder: str) -> str:
-        """Music or video for a Look Up on `folder`: its own files first, else the library's guess, else the kind used last
-        time, else asked once (and kept for this library). '' = the person cancelled."""
-        from core.media_guess import guess_media
+        """Music, video, books or comics for a Look Up or a Scan on `folder`: its own files first, else the library's guess
+        (music or video), else the kind used last time, else asked once (music or video is kept for this library). '' = the
+        person cancelled."""
+        from core.media_guess import guess_kind
 
-        media = run_busy(self, "Looking at the folder's files…", guess_media, folder, title=APP_NAME) if folder else ""
+        media = run_busy(self, "Looking at the folder's files…", guess_kind, folder, title=APP_NAME) if folder else ""
         media = media or self.library_media or notes_settings.last_media() or self._ask_media()
-        if media and not self.library_media:
+        if media in (MUSIC, VIDEO) and not self.library_media:
             self.library_media = media
         return media
 
     def _ask_media(self) -> str:
-        box = QMessageBox(QMessageBox.Icon.Question, "Look Up",
-                          "Is this a music library or a video library? (It could not be told from the file names.)",
+        box = QMessageBox(QMessageBox.Icon.Question, APP_NAME,
+                          "What does this library hold? (It could not be told from the file names.)",
                           QMessageBox.StandardButton.Cancel, self)
-        music = box.addButton("Music", QMessageBox.ButtonRole.AcceptRole)
-        video = box.addButton("Video", QMessageBox.ButtonRole.AcceptRole)
+        buttons = {box.addButton(label, QMessageBox.ButtonRole.AcceptRole): media
+                   for label, media in (("Music", MUSIC), ("Video", VIDEO), ("Books", BOOKS), ("Comics", COMICS))}
         box.exec()
         clicked = box.clickedButton()
         box.deleteLater()
-        return MUSIC if clicked is music else VIDEO if clicked is video else ""
+        return buttons.get(clicked, "")
 
     def _on_look_up(self) -> None:
         folder = self.tree.current_path() or self.library_folder
@@ -616,6 +619,9 @@ class MainWindow(QMainWindow):
             return
         media = self.media_for(folder)
         if not media:
+            return
+        if media in (BOOKS, COMICS):
+            self.status_bar.showMessage(LOOK_UP_NOT_YET.format(media=media))
             return
         if media == VIDEO:
             from core.video.flow import live_fetchers  # noqa: PLC0415
@@ -663,7 +669,12 @@ class MainWindow(QMainWindow):
         media = self.media_for(folder)
         if not media:
             return
-        kinds = self.chosen_kinds(media)
+        if media in (BOOKS, COMICS):
+            from core import books, comics  # noqa: PLC0415
+
+            kinds = (books if media == BOOKS else comics).ALL_KINDS  # no Look Up Options for them yet: every level
+        else:
+            kinds = self.chosen_kinds(media)
         if not kinds:
             self.status_bar.showMessage("Nothing ticked under Notes > Look Up Options.")
             return

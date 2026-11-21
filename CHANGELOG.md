@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-21#02 -- Scan for Notes on books and comics
+
+- **Scan works on book and comic trees.** The folder's files tell what it is (`.epub`, `.pdf`, `.mobi` and the other
+  book formats; `.cbz`, `.cbr`); if they cannot tell, you are asked: Music, Video, Books or Comics. Folder names and
+  structure only, no file is opened. Look Up for books and comics is not built yet and says so.
+- **Comics:** a folder that holds comic files is a series (`series.md`); everything inside it belongs to it. The
+  folders above series (publisher, lineage like `3.23 - Imprint`, country, continent, `_Crossovers`) get `about.md`.
+  Letter folders, a folder named only `_`, and the top folder when it is a place (`741.59 - Comic Books`) get none.
+- **Books:** a folder named "Surname, Given" with books in or below it is an author (`author.md`); a folder of books
+  inside an author is a series (`series.md`); a folder of books outside any author is the author itself (`Plato`). The
+  folders above authors are genres (`about.md`). Calibre's one-folder-per-book layout (the book beside a
+  `metadata.opf`) counts as the author's books, with no note per book. Letter folders, `_`, and the top folder when it
+  is a place (`eLib`, `Books`) get none.
+- **Folder names that end in a dot** (`Tolkien, J.R.R.`) are read now: in the tree (its light, its subfolders) and in
+  the book and comic scans. Windows used to cut the dot off and find nothing there.
+
 ## 2026-11-21#01 -- Scan for Notes: which folders are left
 
 - **Scan** (the button beside Look Up, or Notes > Scan for Notes) goes through the selected folder and everything
