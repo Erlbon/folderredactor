@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-21#08 -- Loose comics no longer turn a country or a publisher into one series
+
+- **Found by a scan of `594 - EU` on the share.** 16 of the 18 countries have a few comics lying loose in the country
+  folder, and publishers such as `_Egmont` have them next to their series. A folder with comic files in it counted as a
+  series with everything inside it, so `59481 - Norwegian` was one "series" and its publishers and 30 series vanished.
+- Now an underscore folder (`_Egmont`, `_Semic`) is always a grouping, and so is a folder with loose comics whose folders
+  are mostly groupings (underscore folders, or folders of series). Their loose comics get no note until they are filed in
+  a series folder. A series with an `Annuals` or `Extras` folder of comics stays one series (Erlend, 2026-11-21).
+- Re-scan of all 18 EU countries: 15 come out with their publishers and series. Serbian, Swiss and Croatian are still one
+  series each: their few folders are creators and publishers without an underscore, so the rule does not reach them.
+
 ## 2026-11-21#07 -- Loose books in a fiction genre no longer turn it into an author
 
 - **Found by a scan of `800 - Fiction` on the share.** One loose `100 Must-Read Fantasy Novels.pdf` in `Fantasy` made

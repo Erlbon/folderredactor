@@ -65,6 +65,30 @@ def test_comics_series_folders_hold_comics_and_the_folders_above_get_about(lib):
     assert left(result) == set(found(result)) - {"_Crossovers", "Fix und Foxi (1953-1994)"}
 
 
+def test_loose_comics_in_a_country_and_a_publisher_leave_them_groupings(lib):
+    """'594 - EU/59481 - Norwegian' on the share: loose albums next to underscore publishers, and '_Egmont' with loose Kid
+    Paddle albums next to its 'Nemi' series. Before 2026-11-21 the whole country was one series."""
+    norway = lib / "741.59 - Comic Books" / "594 - EU" / "59481 - Norwegian"
+    touch(norway / "Hauk 006 (Se-Bladene, 1957).cbz")
+    touch(norway / "_Egmont" / "Kid Paddle 001 - Spillegalskap (Egmont Serieforlaget, 2001-).cbz")
+    touch(norway / "_Egmont" / "Nemi" / "Nemi 115 (Hjemmet, 2013-).cbz")
+    touch(norway / "_Semic" / "Fantomet (1950-)" / "Fantomet 001.cbz")
+    touch(norway / "_Hjemmet" / "Donald Duck & Co (1948-)" / "DDC 001.cbz")
+    touch(norway / "Downs Duck (Ronny Haugeland)" / "downsbuss.jpg")  # pictures only: no comics, no note
+    result = comics.scan([lib / "741.59 - Comic Books"])
+    assert found(result) == {
+        "594 - EU": "grouping", "59481 - Norwegian": "grouping", "_Egmont": "grouping", "_Semic": "grouping",
+        "_Hjemmet": "grouping", "Nemi": "series", "Fantomet (1950-)": "series", "Donald Duck & Co (1948-)": "series"}
+
+
+def test_a_series_with_an_annuals_folder_stays_one_series(lib):
+    series = lib / "Spider-Man (1963-)"
+    touch(series / "Amazing 001.cbz")
+    touch(series / "Annuals" / "Annual 01.cbz")
+    touch(series / "Extras" / "Extra 01.cbz")
+    assert found(comics.scan([series])) == {"Spider-Man (1963-)": "series"}
+
+
 def test_a_comics_folder_chosen_below_the_root_is_judged_itself(lib):
     marvel = comics_tree(lib) / "5973 - US" / "M" / "3 - Marvel (1961-2012)"
     assert "3 - Marvel (1961-2012)" in left(comics.scan([marvel]))
