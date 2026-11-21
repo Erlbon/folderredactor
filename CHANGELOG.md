@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-21#05 -- Music levels fixed from a scan of the real share
+
+Scan on five letters of `0 - Bands` (R, Q, B, I, Y) showed four kinds of misreads. Fixed by Erlend's decisions 1A, 2C,
+3B and 4B:
+
+- **A letter folder is never an artist.** Started at `0 - Bands/R`, Scan wanted an `artist.md` for "R". A letter,
+  digit, `#` or range folder in which most folders are artists is now a grouping, even when a few bands in it keep
+  their songs loose. A band really called "X" that holds its albums is still an artist.
+- **An album with named disc folders is one album.** A folder whose name starts with a year in brackets
+  (`[2006] - `, `[2004.04.20] - `, `[2018-03-02] - `) is always an album, and every folder inside it is one of its
+  discs, whatever it is called (`Bonus Disc`, `1979-1983 Volume One`, `Live at the Fillmore March 16 2004`, a lone
+  `Remixes`). Without a year, `Bonus Disc`, `Part 2`, `... Volume One` and the album's own name with a number after it
+  count as discs too, but only when no other folder inside holds music.
+- **Sorting folders inside an artist get no note.** `Big Black/Bootlegs`, `Big Black/Rare Stuff`,
+  `Beautiful South/Singles`: any folder of albums directly inside an artist folder is skipped, and the albums in it are
+  that artist's albums.
+- **A band with its songs loose under a letter is an artist.** `R/Rammsund` gets `artist.md`, not `album.md`.
+- Found while building: a folder that holds more bands than albums (`Rock` with one band whose songs are loose) is
+  not an artist, and a band with loose singles next to its albums is not an album of the folder above.
+- Re-scan of the five letters: 24 misread folders before, none after. Scan reads a little more per letter folder
+  now (R took 10 s instead of 5 s over Tailscale).
+
 ## 2026-11-21#04 -- Look Up and Write work in folders whose names end in a dot (redactor_common 2026-11-21-02)
 
 - **`R.E.M.` gets its notes now.** Look Up reads the tags and the cover of the files inside such a folder (and its

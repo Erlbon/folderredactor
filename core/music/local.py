@@ -217,9 +217,52 @@ def _entries(folder: Path) -> tuple[list[Path], list[Path]]:
     return sorted(files, key=key), sorted(dirs, key=key)
 
 
+# A YEAR ALBUM: a folder whose name starts with a year in brackets ('[2006] - Name', '[2004.04.20] - Name', '[2018-03-02] - Name')
+# is always an album, and every sub-folder of it is one of its discs whatever it is called ('Bonus Disc', '1979-1983 Volume One',
+# 'Live at the Fillmore March 16 2004', a lone 'Remixes' that holds the songs). Erlend's decision 2C, 2026-11-21.
+_YEAR_ALBUM_NAME = re.compile(r"^\s*\[\s*(?:1[89]|20)\d{2}(?:[.\-]\d{1,2}){0,2}\s*\]")
+# Disc names besides CD1 / Disc 2, for a folder without a year: they count only when every music sub-folder is disc-like.
+_WIDE_DISC = re.compile(
+    r"^(?:bonus\s+(?:disc|disk|cd|dvd)\b|part\s*\d+\b)"
+    r"|\b(?:volume|vol\.?)\s*(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|i{1,3}|iv|vi{0,3}|ix|x)\s*$",
+    re.IGNORECASE)
+
+
+def is_year_album_name(name: str) -> bool:
+    return bool(_YEAR_ALBUM_NAME.match(name or ""))
+
+
+def _is_year_album(folder: Path) -> bool:
+    return is_year_album_name(folder.name) and _has_audio_below(folder, 3)
+
+
+def _wide_disc_name(child: str, parent: str) -> bool:
+    """'Bonus Disc', 'Part 2', '... Volume One', or the album's own name with or without a number after it
+    ('Way Hap Ultimate Rarities 1' in 'Way Hap Ultimate Rarities')."""
+    if _WIDE_DISC.search(child):
+        return True
+    title = fold_name(split_year(parent)[0])
+    name = fold_name(child)
+    return bool(title) and (name == title or re.fullmatch(re.escape(title) + r" \d{1,2}", name) is not None)
+
+
+def _disc_children(folder: Path) -> list[Path]:
+    """The sub-folders of `folder` that are its discs (music in them or not): every sub-folder of a year album; else the
+    CD1 / Disc 2 ones, plus the wider disc names when no other sub-folder holds music."""
+    dirs = _entries(folder)[1]
+    if is_year_album_name(folder.name):
+        return dirs
+    strict = [d for d in dirs if _DISC_FOLDER.match(d.name)]
+    rest = [d for d in dirs if d not in strict]
+    wide = [d for d in rest if not is_year_album_name(d.name) and _wide_disc_name(d.name, folder.name)]
+    if wide and not any(_is_album_like(d) for d in rest if d not in wide):
+        return strict + wide
+    return strict
+
+
 def disc_folders(folder: Path) -> list[Path]:
-    """The CD1 / Disc 2 sub-folders of `folder` that hold music files."""
-    return [d for d in _entries(folder)[1] if _DISC_FOLDER.match(d.name) and _entries(d)[0]]
+    """The disc sub-folders of `folder` (CD1 / Disc 2, and see _disc_children) that hold music files."""
+    return [d for d in _disc_children(folder) if _entries(d)[0]]
 
 
 def box_discs(folder: Path) -> list[Path]:
@@ -249,28 +292,52 @@ def album_files(folder: Path) -> list[Path]:
 
 def _is_album_like(folder: Path) -> bool:
     files, _dirs = _entries(folder)
-    return bool(files) or bool(disc_folders(folder)) or bool(box_discs(folder))
+    return bool(files) or _is_year_album(folder) or bool(disc_folders(folder)) or bool(box_discs(folder))
 
 
 def album_children(folder: Path) -> list[Path]:
     """The sub-folders of `folder` that are album folders (disc folders are not albums of their own)."""
-    return [d for d in _entries(folder)[1] if not _DISC_FOLDER.match(d.name) and _is_album_like(d)]
+    discs = _disc_children(folder)
+    # a folder with loose songs that also holds albums is an artist (singles next to the albums), not an album of this folder
+    return [d for d in _entries(folder)[1] if d not in discs and _is_album_like(d) and (_is_year_album(d) or not album_children(d))]
 
 
 def album_folder_of(file: str | os.PathLike) -> Path:
-    """The album folder a music file belongs to: its folder, or the folder above when that is a 'Disc 2' style
-    sub-folder."""
+    """The album folder a music file belongs to: its folder, or the folder above when that is a disc sub-folder ('Disc 2',
+    'Bonus Disc', anything inside a year album)."""
     parent = Path(file).parent
-    if _DISC_FOLDER.match(parent.name):
+    if _DISC_FOLDER.match(parent.name) or is_year_album_name(parent.parent.name) or parent in _disc_children(parent.parent):
         return parent.parent
     if _DISC_FOLDER.match(parent.parent.name) and parent.parent in box_discs(parent.parent.parent):
         return parent.parent.parent  # Box/Disc 1/Album/song: the box is the album
     return parent
 
 
+def _is_letter_grouping(folder: Path) -> bool:
+    """A letter / range / bucket folder ('R', 'A-C', '#') with more artist folders in it than anything else: a grouping, even
+    when a few of the bands in it keep their songs loose (Erlend's decision 1A, 2026-11-21). A band really called 'X' that
+    holds its albums is not one."""
+    if not is_alphabetical_grouping(folder.name):
+        return False
+    children = _entries(folder)[1]
+    return bool(children) and sum(classify(c) == KIND_ARTIST for c in children) * 2 > len(children)
+
+
 def classify(folder: Path) -> str:
-    """'artist', 'album' or '' (see the module text)."""
-    if album_children(folder):
+    """'artist', 'album' or '' (see the module text). A year album is an album whatever is inside it; a letter grouping is
+    neither."""
+    if _is_year_album(folder):
+        return KIND_ALBUM
+    if _is_letter_grouping(folder):
+        return ""
+    albums = album_children(folder)
+    if albums:
+        # more artist folders than albums in it: a folder of bands, a few of them with their songs loose ('Rock/Rammsund'),
+        # not an artist whose sorting folders ('Bootlegs') hold more albums
+        discs = _disc_children(folder)
+        others = [d for d in _entries(folder)[1] if d not in albums and d not in discs]
+        if others and sum(classify(d) == KIND_ARTIST for d in others) > len(albums):
+            return ""
         return KIND_ARTIST
     return KIND_ALBUM if _is_album_like(folder) else ""
 
@@ -446,6 +513,11 @@ def folder_layout(folder: Path, depth: int = 3) -> str:
     return f"{word}/{below[0][1]}"
 
 
+SORTING_REASON = "a sorting folder inside an artist folder"
+_IN_ARTIST = "artist"  # walk(): the folder above is an artist folder
+_IN_LETTER = "letter"  # walk(): the folder above is a letter grouping
+
+
 def scan(
     paths: Iterable[str | os.PathLike], include_subfolders: bool = True, kinds: Iterable[str] = KINDS,
     include_outdated: bool = False, on_folder: Optional[Callable[[Path], None]] = None,
@@ -519,16 +591,31 @@ def scan(
             return
         result.targets.append(Target(folder, kind, parent_name=lookup_name(folder.parent.name), layout_only=layout_only))
 
-    def walk(folder: Path, is_root: bool = False) -> None:
+    def walk(folder: Path, is_root: bool = False, above: str = "") -> None:
         if on_folder is not None:
             on_folder(folder)
         kind = classify_level(folder, is_root, True)
+        if above == _IN_ARTIST and kind == KIND_ARTIST:
+            # 'Big Black/Bootlegs', 'Beautiful South/Singles': a sorting folder of the artist above, no note; what is in it
+            # is still the artist's (Erlend's decision 3B, 2026-11-21)
+            result.skipped.append(Skipped(folder, kind, SORTING_REASON))
+            for child in _entries(folder)[1]:
+                walk(child, above=_IN_ARTIST)
+            return
+        if above == _IN_LETTER and kind == KIND_ALBUM and not _is_year_album(folder):
+            kind = KIND_ARTIST  # 'R/Rammsund' with its songs loose: the band, not a record (decision 4B, 2026-11-21)
         if kind:
             consider(folder, kind)
         if kind == KIND_ALBUM:
             return  # nothing below an album folder is a note level
+        if kind == KIND_ARTIST:
+            below = _IN_ARTIST
+        elif kind == KIND_GENRE and is_alphabetical_grouping(folder.name):
+            below = _IN_LETTER
+        else:
+            below = ""
         for child in _entries(folder)[1]:
-            walk(child)
+            walk(child, above=below)
 
     for root in roots:
         if include_subfolders:
