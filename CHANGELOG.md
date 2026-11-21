@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-21#06 -- A wrong library guess fails a test instead of hanging it
+
+- Tests only, no change to the app. The tests' box helper now also answers the window's own "What does this library
+  hold?" box (Cancel unless the test gives an answer) and keeps it, so a test whose library is guessed wrong fails at
+  once. Before, that box waited for a click and the test run hung.
+
 ## 2026-11-21#05 -- Music levels fixed from a scan of the real share
 
 Scan on five letters of `0 - Bands` (R, Q, B, I, Y) showed four kinds of misreads. Fixed by Erlend's decisions 1A, 2C,

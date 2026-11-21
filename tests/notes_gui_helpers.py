@@ -109,7 +109,20 @@ def boxes(monkeypatch):
         return QMessageBox.StandardButton.No
 
     monkeypatch.setattr(QMessageBox, "question", staticmethod(question))
+
+    # The window's own "What does this library hold?" box (a QMessageBox of its own with four buttons, not a static call):
+    # answered with `boxes.media` ('' = Cancel) and kept, so a wrong guess shows in the test instead of hanging it.
+    from gui.main_window import MainWindow  # noqa: PLC0415
+
+    def ask_media(_window) -> str:
+        seen.append(("library", MEDIA_QUESTION))
+        return seen.media
+
+    monkeypatch.setattr(MainWindow, "_ask_media", ask_media)
     return seen
+
+
+MEDIA_QUESTION = "What does this library hold?"
 
 
 class Boxes(list):
@@ -118,6 +131,7 @@ class Boxes(list):
     def __init__(self):
         super().__init__()
         self.yes: list[str] = []
+        self.media = ""  # the answer to the window's "What does this library hold?" ('' = Cancel)
 
     def said(self, words: str) -> bool:
         return any(words in text for _title, text in self)
