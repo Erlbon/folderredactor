@@ -1,8 +1,8 @@
 """
 core/comics.py
 
-Which folders of a COMICS library get a note (Pluteus: docs/library-layout.md), for Notes > Scan for Notes. Folder structure
-only; Look Up for comics (ComicInfo.xml, Comic Vine) is plan step 18 and not built yet.
+Which folders of a COMICS library get a note (Pluteus: docs/library-layout.md), for Notes > Scan for Notes and Look Up.
+Folder structure only; what the notes hold is core/comicnotes (plan step 18).
 
   series    a folder that holds comic files (.cbz, .cbr, .cb7, .cbt) directly          -> series.md
             nothing below a series folder is judged (annuals or extras inside it belong to it)
@@ -10,6 +10,9 @@ only; Look Up for comics (ComicInfo.xml, Comic Vine) is plan step 18 and not bui
             comics lying loose in it; those loose comics get no note (2026-11-21); and so does a folder with loose
             comics AND folders of comics when most of the folders beside it are groupings ('594971 - Serbian' among
             the other countries; Erlend's B, 2026-11-21)
+            also a series: a magazine run split by year, a folder whose folders are mostly year folders ('1943',
+            '1943 (35 issues)', '2015 (52 Issues)': 'Robbedoes (1938-2005)', 'Diabolik'); the year folders get no note
+            (Erlend's A, 2026-11-21)
   grouping  a folder above series folders: publisher, lineage ('3.23 - Imprint'), country, continent, an underscore
             grouping ('_Crossovers')                                                     -> about.md
   no note   letter buckets (A, B-C, 0-9), a folder named only '_' (an attention marker), a folder with no comics below
@@ -18,6 +21,7 @@ only; Look Up for comics (ComicInfo.xml, Comic Vine) is plan step 18 and not bui
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Iterable
 
@@ -32,6 +36,16 @@ ALL_KINDS = (KIND_SERIES, KIND_GROUPING)
 def _is_underscore_grouping(name: str) -> bool:
     """'_Egmont', '_Crossovers': a grouping by the person's own mark, never a series. A folder named only '_' is not one."""
     return name.startswith("_") and bool(name.strip("_").strip())
+
+
+_YEAR_FOLDER = re.compile(r"^(19|20)\d\d(\s*\([^)]*\))?$")  # '1943', '1943 (35 issues)', '2001 (50+2 issues)'
+
+
+def _is_year_run(dirs: list[Path]) -> bool:
+    """Most of these folders are year folders: a magazine run split by year ('Robbedoes (1938-2005)/1943 (35 issues)',
+    '2000 AD (2000-)/2001 (50+2 issues)'). The folder holding them is one series; the years get no note (Erlend's A,
+    2026-11-21)."""
+    return bool(dirs) and sum(bool(_YEAR_FOLDER.match(d.name)) for d in dirs) * 2 > len(dirs)
 
 
 def _comics_below(folder: Path, depth: int) -> bool:
@@ -49,7 +63,8 @@ def _holds_groupings(dirs: list[Path]) -> bool:
             count += 1
             continue
         files, inner = entries(d)
-        if not has_extension(files, COMIC_EXTENSIONS) and any(_comics_below(i, 3) for i in inner):
+        if (not has_extension(files, COMIC_EXTENSIONS) and not _is_year_run(inner)
+                and any(_comics_below(i, 3) for i in inner)):
             count += 1
     return count * 2 > len(dirs)
 
@@ -72,7 +87,7 @@ def _looks_like_grouping(folder: Path) -> bool:
         return True
     files, dirs = entries(folder)
     if not has_extension(files, COMIC_EXTENSIONS):
-        return any(_comics_below(d, 3) for d in dirs)
+        return not _is_year_run(dirs) and any(_comics_below(d, 3) for d in dirs)
     return _holds_groupings(dirs)
 
 
@@ -110,6 +125,10 @@ def scan(paths: Iterable, include_subfolders: bool = True, kinds: Iterable[str] 
         # albums next to two or more folders of comics follows the countries beside it
         if loose and not _grouping_with_loose_comics(folder, dirs) and not (
                 sum(_comics_below(d, 3) for d in dirs) >= 2 and siblings_are_groupings(folder)):
+            record.consider(folder, KIND_SERIES)
+            return True
+        # a magazine run split by year folders is one series; nothing below it is judged
+        if not loose and _is_year_run(dirs) and any(_comics_below(d, 2) for d in dirs):
             record.consider(folder, KIND_SERIES)
             return True
         below = False

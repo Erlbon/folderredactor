@@ -2,7 +2,7 @@
 core/books.py
 
 Which folders of a BOOKS library get a note (Pluteus: docs/library-layout.md, Genre/Sub-genre/Author), for Notes > Scan for
-Notes. Folder structure and names only; Look Up for books (metadata.opf, Open Library) is plan step 17 and not built yet.
+Notes and Look Up. Folder structure and names only; what the notes hold is core/booknotes (plan step 17).
 
   author   a folder named 'Surname, Given' (a comma in it) with books in it or below it, or else the first folder down
            that holds book files directly                                                -> author.md

@@ -9,10 +9,12 @@ the daily update check. The clean-up settings join with their steps.
 from __future__ import annotations
 
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout,
+    QCheckBox, QDialogButtonBox, QFileDialog, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
+    QVBoxLayout,
 )
 
 from core import app_paths, history, notes_debug, notes_settings
+from core.booknotes import settings as book_settings
 from core.music import settings as music_settings
 from redactor_common.core.selfupdate import KEY_CHECK_FOR_UPDATES, UpdateSettings
 from redactor_common.gui.owned_dialog import OwnedDialog
@@ -84,6 +86,26 @@ class PreferencesDialog(OwnedDialog):
         music_layout.addWidget(self.norwegian_check)
         layout.addWidget(music_box)
 
+        books_box = QGroupBox("Look Up: books")
+        books_layout = QVBoxLayout(books_box)
+        isfdb_row = QHBoxLayout()
+        isfdb_row.addWidget(QLabel("ISFDB database:"))
+        self.isfdb_edit = QLineEdit(book_settings.isfdb_path())
+        self.isfdb_edit.setPlaceholderText("isfdb.db, built in epubredactor (Tools > ISFDB Database)")
+        self.isfdb_edit.setToolTip("Book lists and series order for science fiction, fantasy and horror authors. Without "
+                                   "it, Open Library gives the book lists.")
+        isfdb_row.addWidget(self.isfdb_edit, 1)
+        browse = QPushButton("Browse…")
+        browse.clicked.connect(self._on_browse_isfdb)
+        isfdb_row.addWidget(browse)
+        books_layout.addLayout(isfdb_row)
+        self.isfdb_status = QLabel("")
+        self.isfdb_status.setWordWrap(True)
+        books_layout.addWidget(self.isfdb_status)
+        self.isfdb_edit.textChanged.connect(self._show_isfdb_status)
+        self._show_isfdb_status()
+        layout.addWidget(books_box)
+
         self.update_settings = UpdateSettings(app_paths.updates_json_path())
         self.updates_check = QCheckBox("Check for a new version once a day")
         self.updates_check.setToolTip("Asks GitHub at startup, at most once a day. Nothing about you or your files "
@@ -112,6 +134,20 @@ class PreferencesDialog(OwnedDialog):
         else:
             QMessageBox.information(self, "Delete History", "The history was moved to the Recycle Bin.")
 
+    def _on_browse_isfdb(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "ISFDB Database", self.isfdb_edit.text().strip(),
+                                              "SQLite database (*.db);;All files (*)")
+        if path:
+            self.isfdb_edit.setText(path)
+
+    def _show_isfdb_status(self) -> None:
+        from core.booknotes.isfdb import database_problem  # noqa: PLC0415
+
+        path = self.isfdb_edit.text().strip()
+        problem = database_problem(path) if path else ""
+        self.isfdb_status.setText("Not set: book lists come from Open Library." if not path
+                                  else (f"Cannot be used: {problem}" if problem else "Ready."))
+
     def _on_delete_debug_log(self) -> None:
         problem = notes_debug.delete_log()
         if problem:
@@ -135,6 +171,8 @@ class PreferencesDialog(OwnedDialog):
                                  (self.norwegian_check, music_settings.norwegian_numbers, music_settings.set_norwegian_numbers)):
             if box.isChecked() != read():
                 write(box.isChecked())
+        if self.isfdb_edit.text().strip() != book_settings.isfdb_path():
+            book_settings.set_isfdb_path(self.isfdb_edit.text())
         if self.updates_check.isChecked() != self.update_settings.enabled:
             self.update_settings.update(**{KEY_CHECK_FOR_UPDATES: self.updates_check.isChecked()})
         self.accept()

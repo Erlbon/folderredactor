@@ -32,8 +32,8 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 MUSIC = "music"
 VIDEO = "video"
-BOOKS = "books"  # Scan for Notes only, so far (core/books.py)
-COMICS = "comics"  # Scan for Notes only, so far (core/comics.py)
+BOOKS = "books"  # Scan (core/books.py) and Look Up (core/booknotes)
+COMICS = "comics"  # Scan (core/comics.py) and Look Up (core/comicnotes)
 
 
 @dataclass
@@ -234,7 +234,12 @@ class LookupWorker(QThread):
             from core.music.flow import build_proposals, scan  # noqa: PLC0415
             from gui.music_notes import nothing_found_why  # noqa: PLC0415
         else:
-            from core.video.flow import build_proposals, scan  # noqa: PLC0415
+            if job.media == BOOKS:
+                from core.booknotes.flow import build_proposals, scan  # noqa: PLC0415
+            elif job.media == COMICS:
+                from core.comicnotes.flow import build_proposals, scan  # noqa: PLC0415
+            else:
+                from core.video.flow import build_proposals, scan  # noqa: PLC0415
 
             def nothing_found_why(found) -> str:
                 return ""

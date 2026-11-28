@@ -15,6 +15,9 @@ The Ⅎolder Redactor is built on the work of a number of other projects.
 - **[Discogs](https://www.discogs.com/)** — Data provided by Discogs. This program is not affiliated with Discogs.
 - **[TMDB](https://www.themoviedb.org/)** — This application uses TMDB and the TMDB APIs but is not endorsed,
   certified, or otherwise approved by TMDB.
+- **[ISFDB](https://www.isfdb.org/)** — the Internet Speculative Fiction Database (CC BY): book lists and series order
+  for author and series notes, read from the local copy epubredactor builds from ISFDB's public backup.
+- **[Open Library](https://openlibrary.org/)** — author data and book lists for authors ISFDB does not cover.
 - **[Wikipedia](https://www.wikipedia.org/)** — the introductions in folder notes are taken from Wikipedia articles,
   available under the [Creative Commons Attribution-ShareAlike License](https://creativecommons.org/licenses/by-sa/4.0/);
   each note links to its article. **[Wikidata](https://www.wikidata.org/)** (CC0) links the articles to the other

@@ -10,7 +10,7 @@ import pytest
 from core import books, comics
 from core.shelf_scan import literal
 from core.media_guess import BOOKS, COMICS, MUSIC, guess_kind, guess_media
-from tests.notes_gui_helpers import open_library, pump, select
+from tests.notes_gui_helpers import boxes, open_library, pump, select  # noqa: F401 -- boxes is a fixture
 
 
 @pytest.fixture
@@ -129,6 +129,29 @@ def test_a_series_with_an_annuals_folder_stays_one_series(lib):
     assert found(comics.scan([series])) == {"Spider-Man (1963-)": "series"}
 
 
+def test_a_magazine_run_split_by_year_folders_is_one_series(lib):
+    """'_Dupuis/_Spirou/Robbedoes (1938-2005)' on the share holds 38 year folders ('1943 (35 issues)', '1946'); 24 runs
+    like it in the EU (Diabolik, Anders And, 2000 AD with '2001 (50+2 issues)', Topolino v4 with '2015 (52 Issues)').
+    One series, the years get no note (Erlend's A, 2026-11-21)."""
+    spirou = lib / "_Spirou"
+    touch(spirou / "Robbedoes (1938-2005)" / "1943 (35 issues)" / "Robbedoes 1943-01.cbz")
+    touch(spirou / "Robbedoes (1938-2005)" / "1946" / "Robbedoes 1946-01.cbz")
+    touch(spirou / "Robbedoes (1938-2005)" / "2001 (50+2 issues)" / "Robbedoes 2001-01.cbz")
+    touch(spirou / "Topolino v4 (2013-)" / "2015 (52 Issues)" / "Topolino 3085.cbz")
+    touch(spirou / "Topolino v4 (2013-)" / "Specials" / "Special 01.cbz")
+    touch(spirou / "Topolino v4 (2013-)" / "2016 (52 Issues)" / "Topolino 3137.cbz")
+    assert found(comics.scan([spirou])) == {"_Spirou": "grouping", "Robbedoes (1938-2005)": "series",
+                                            "Topolino v4 (2013-)": "series"}
+
+
+def test_a_publisher_with_year_named_series_is_not_a_magazine_run(lib):
+    """Only folders named by a year alone count: 'Out of This World v1 (1962-)' is a series name, not a year folder."""
+    publisher = lib / "_Alan Class (1959-1989)"
+    touch(publisher / "Out of This World v1 (1962-)" / "OotW 01.cbz")
+    touch(publisher / "Outer Space (1961)(10 issues)" / "OS 01.cbz")
+    assert found(comics.scan([publisher]))["_Alan Class (1959-1989)"] == "grouping"
+
+
 def test_a_comics_folder_chosen_below_the_root_is_judged_itself(lib):
     marvel = comics_tree(lib) / "5973 - US" / "M" / "3 - Marvel (1961-2012)"
     assert "3 - Marvel (1961-2012)" in left(comics.scan([marvel]))
@@ -236,7 +259,8 @@ def test_the_tree_opens_and_lights_a_folder_whose_name_ends_in_a_dot(window, lib
     assert window.tree.select(author / "Middle-earth")  # its children can be listed
 
 
-def test_scan_in_the_window_on_a_comics_tree_and_look_up_says_not_yet(window, lib):
+def test_scan_and_look_up_in_the_window_on_a_comics_tree(window, lib, boxes):
+    """`boxes` answers the "drop the drafts?" question when the window closes: unanswered, it would hang the run."""
     root = comics_tree(lib)
     open_library(window, lib)
     select(window, root)
@@ -246,5 +270,15 @@ def test_scan_in_the_window_on_a_comics_tree_and_look_up_says_not_yet(window, li
     assert window.tree.item_for(us / "M" / "3 - Marvel (1961-2012)" / "Spider-Man (1963-)") is not None
     assert window.tree.count_label(str(root)) == "7 left" and window.tree.count_label(str(us / "M")) == "3 left"
     assert window.progress_label.text() == "Scanned 741.59 - Comic Books: 7 left without a note, 2 have a note."
+    # Look Up for comics (plan step 18): drafts for the series and groupings left, Wikipedia faked (nothing found)
+    from core.comicnotes.flow import Fetchers  # noqa: PLC0415
+    from tests.notes_gui_helpers import idle  # noqa: PLC0415
+    from tests.video_helpers import FakeFetch  # noqa: PLC0415
+
+    window.notes_fetchers = lambda: Fetchers(wiki=FakeFetch([(r"search/title", {"pages": []})]))
+    window.actions_by_key["look_up_below"].setChecked(True)
+    window._on_options_changed()
     window.actions_by_key["look_up"].trigger()
-    assert "Look Up for comics is not built yet" in window.status_bar.currentMessage()
+    pump(lambda: idle(window), "the lookup", 60)
+    drafted = {Path(i.proposal.target.folder).name for i in window.session.items}
+    assert {"Spider-Man (1963-)", "3 - Marvel (1961-2012)", "Secret Wars (1984-1985)"} <= drafted

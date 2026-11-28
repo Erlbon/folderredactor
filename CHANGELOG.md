@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-28#01 -- Look Up for books and comics; a magazine run split by year is one series
+
+- **Look Up now works on a books library** (plan step 17, Erlend's D27-D31): `author.md` with the biography and the
+  books grouped by series, then the other books; `series.md` in reading order; a genre's `about.md` with a short
+  Wikipedia paragraph. Book lists come from the local ISFDB database when the author is in it (Preferences > Look Up:
+  books), else from Open Library. Single books get no note.
+- **Look Up now works on a comics library** (plan step 18, D32, D34-D36). The notes come from the comics' own
+  `ComicInfo.xml` and the folder names only: no Comic Vine and no Bedetheque (Erlend, 2026-11-21, D33 changed).
+  `series.md` has the years from the folder name, the credits, publisher and genres from ComicInfo, and an album list
+  when the series has fewer than 100 albums. A publisher, country or `_grouping` gets an `about.md` with its years and a
+  Wikipedia paragraph: English first, then the country folder's language. With no page it gets the title and years only.
+  Only `.cbz` files are opened; `.cbr` and `.cb7` are known by their file names.
+- Look Up Options has ticks for the book and comic kinds, and Scan for Notes follows them for books and comics too.
+- **A magazine run split by year folders is one series** (Erlend's A, item 8): `Robbedoes (1938-2005)/1943 (35 issues)`
+  and the 23 other runs like it get one `series.md`; the year folders get none.
+
 ## 2026-11-21#09 -- A small country follows the countries beside it
 
 - **Serbian, Swiss and Croatian are groupings now,** with their publishers and series below. They have a few loose

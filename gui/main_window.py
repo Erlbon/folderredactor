@@ -61,11 +61,9 @@ MENU_NOTES = "&Notes"
 LOOK_UP_KEY = "Ctrl+L"
 WRITE_TICKED_KEY = keys.APPLY  # Ctrl+Return
 NEXT_WAITING_KEY = "F8"
-LOOK_UP_NOT_YET = ("Look Up for {media} is not built yet; Scan (beside Look Up) shows which folders still need a note.")
 SCAN_TOOLTIP = ("Which folders below the selected one still need a note: the tree opens down to each of them, with a count "
-                "after every folder above them. Music and video: Look Up's rules and the kinds ticked under Look Up "
-                "Options; books and comics: every level (author, series, genre; series, publisher and groupings). Nothing "
-                "is looked up or written")
+                "after every folder above them. Look Up's rules and the kinds ticked under Look Up Options. Nothing is "
+                "looked up or written")
 EDIT_NOTE_KEY = "F4"
 VIEW_KEYS = ("Ctrl+1", "Ctrl+2", "Ctrl+3")
 UPDATE_QUESTION = "Replace {n} made by an older version?\n\n{recycle}"
@@ -117,7 +115,7 @@ class FolderPanel(QWidget):
         self.view.clear()
         if not folder:
             return
-        if media == VIDEO:
+        if media != MUSIC:  # video and books (Look Up remembers the media used last)
             self.view.status.setText("Local files are shown for music folders.")
             return
 
@@ -261,7 +259,7 @@ class MainWindow(QMainWindow):
     def _build_menu_bar(self) -> None:
         """The family's standard menu skeleton (redactor_common.gui.standard_menus) with this app's one menu, Notes,
         between View and Tools."""
-        from gui import music_notes, video_notes  # noqa: PLC0415
+        from gui import book_notes, comic_notes, music_notes, video_notes  # noqa: PLC0415
 
         self.recent_menu_spec = Submenu("&Recent", [])
         self.kind_actions: dict[tuple[str, str], str] = {}  # (media, kind) -> action key
@@ -271,7 +269,8 @@ class MainWindow(QMainWindow):
                                "is)"),
             Separator(),
         ]
-        for media, checks in ((MUSIC, music_notes.KIND_CHECKS), (VIDEO, video_notes.KIND_CHECKS)):
+        for media, checks in ((MUSIC, music_notes.KIND_CHECKS), (VIDEO, video_notes.KIND_CHECKS),
+                              (BOOKS, book_notes.KIND_CHECKS), (COMICS, comic_notes.KIND_CHECKS)):
             for kind, label in checks:
                 key = f"look_up_{media}_{kind}"
                 self.kind_actions[(media, kind)] = key
@@ -392,17 +391,22 @@ class MainWindow(QMainWindow):
     # --- Look Up options (remembered) ------------------------------------------------------------------------------
 
     def _load_options(self) -> None:
+        from core.booknotes import settings as book_settings  # noqa: PLC0415
+        from core.comicnotes import settings as comic_settings  # noqa: PLC0415
         from core.music import settings as music_settings  # noqa: PLC0415
         from core.video import settings as video_settings  # noqa: PLC0415
 
         registry = self.actions_by_key
         registry["look_up_below"].setChecked(notes_settings.include_subfolders())
         registry["look_up_outdated"].setChecked(settings.get_setting("notes", "look_up_outdated", "0") == "1")
-        chosen = {MUSIC: set(music_settings.kinds()), VIDEO: set(video_settings.kinds())}
+        chosen = {MUSIC: set(music_settings.kinds()), VIDEO: set(video_settings.kinds()), BOOKS: set(book_settings.kinds()),
+                  COMICS: set(comic_settings.kinds())}
         for (media, kind), key in self.kind_actions.items():
             registry[key].setChecked(kind in chosen[media])
 
     def _on_options_changed(self) -> None:
+        from core.booknotes import settings as book_settings  # noqa: PLC0415
+        from core.comicnotes import settings as comic_settings  # noqa: PLC0415
         from core.music import settings as music_settings  # noqa: PLC0415
         from core.video import settings as video_settings  # noqa: PLC0415
 
@@ -411,6 +415,8 @@ class MainWindow(QMainWindow):
         settings.set_setting("notes", "look_up_outdated", "1" if registry["look_up_outdated"].isChecked() else "0")
         music_settings.set_kinds(",".join(self.chosen_kinds(MUSIC)))
         video_settings.set_kinds(",".join(self.chosen_kinds(VIDEO)))
+        book_settings.set_kinds(",".join(self.chosen_kinds(BOOKS)))
+        comic_settings.set_kinds(",".join(self.chosen_kinds(COMICS)))
 
     def chosen_kinds(self, media: str) -> tuple:
         return tuple(kind for (m, kind), key in self.kind_actions.items()
@@ -538,11 +544,15 @@ class MainWindow(QMainWindow):
     def _strip(self, media: str) -> MatchStrip:
         strip = self.strips.get(media)
         if strip is None:
-            from gui import music_notes, video_notes  # noqa: PLC0415
+            from gui import book_notes, comic_notes, music_notes, video_notes  # noqa: PLC0415
 
             stand_in = _EngineStandIn(self.worker, media)
             if media == MUSIC:
                 strip = MatchStrip(stand_in.can_choose, music_notes.music_hooks(stand_in), music_notes.CANDIDATE_COLUMNS)
+            elif media == BOOKS:
+                strip = MatchStrip(stand_in.can_choose, book_notes.book_hooks())
+            elif media == COMICS:
+                strip = MatchStrip(stand_in.can_choose, comic_notes.comic_hooks())
             else:
                 strip = MatchStrip(stand_in.can_choose, video_notes.video_hooks())
             strip.candidateChosen.connect(lambda c: self._rebuild_current(candidate=c, what=c.name))
@@ -571,6 +581,12 @@ class MainWindow(QMainWindow):
         if media == MUSIC:
             from core.music.flow import live_fetchers  # noqa: PLC0415
             from gui.music_notes import make_engine  # noqa: PLC0415
+        elif media == BOOKS:
+            from core.booknotes.flow import live_fetchers  # noqa: PLC0415
+            from gui.book_notes import make_engine  # noqa: PLC0415
+        elif media == COMICS:
+            from core.comicnotes.flow import live_fetchers  # noqa: PLC0415
+            from gui.comic_notes import make_engine  # noqa: PLC0415
         else:
             from core.video.flow import live_fetchers  # noqa: PLC0415
             from gui.video_notes import make_engine  # noqa: PLC0415
@@ -620,9 +636,6 @@ class MainWindow(QMainWindow):
         media = self.media_for(folder)
         if not media:
             return
-        if media in (BOOKS, COMICS):
-            self.status_bar.showMessage(LOOK_UP_NOT_YET.format(media=media))
-            return
         if media == VIDEO:
             from core.video.flow import live_fetchers  # noqa: PLC0415
             from gui.video_notes import TMDB_KEY_MESSAGE, has_tmdb_key  # noqa: PLC0415
@@ -632,6 +645,10 @@ class MainWindow(QMainWindow):
                 return
         if media == MUSIC:
             from core.music.local import ALL_KINDS  # noqa: PLC0415
+        elif media == BOOKS:
+            from core.books import ALL_KINDS  # noqa: PLC0415
+        elif media == COMICS:
+            from core.comics import ALL_KINDS  # noqa: PLC0415
         else:
             from core.video.local import ALL_KINDS  # noqa: PLC0415
         below = self.actions_by_key["look_up_below"].isChecked()
@@ -669,12 +686,7 @@ class MainWindow(QMainWindow):
         media = self.media_for(folder)
         if not media:
             return
-        if media in (BOOKS, COMICS):
-            from core import books, comics  # noqa: PLC0415
-
-            kinds = (books if media == BOOKS else comics).ALL_KINDS  # no Look Up Options for them yet: every level
-        else:
-            kinds = self.chosen_kinds(media)
+        kinds = self.chosen_kinds(media)
         if not kinds:
             self.status_bar.showMessage("Nothing ticked under Notes > Look Up Options.")
             return
@@ -832,6 +844,10 @@ class MainWindow(QMainWindow):
         media = self._media_of.get(path_key(proposal.folder), MUSIC)
         if media == MUSIC:
             from core.music.flow import write_proposal  # noqa: PLC0415
+        elif media == BOOKS:
+            from core.booknotes.flow import write_proposal  # noqa: PLC0415
+        elif media == COMICS:
+            from core.comicnotes.flow import write_proposal  # noqa: PLC0415
         else:
             from core.video.flow import write_proposal  # noqa: PLC0415
         return write_proposal(proposal)
